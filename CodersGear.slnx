@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="CodersGear.DataAccess/CodersGear.DataAccess.csproj" />
+  <Project Path="CodersGear.Models/CodersGear.Models.csproj" />
+  <Project Path="CodersGear.Utility/CodersGear.Utility.csproj" />
+  <Project Path="CodersGear/CodersGear.csproj" />
+</Solution>

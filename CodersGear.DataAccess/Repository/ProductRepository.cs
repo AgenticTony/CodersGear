@@ -1,0 +1,42 @@
+﻿using CodersGear.DataAccess.Data;
+using CodersGear.DataAccess.Repository.IRepository;
+using CodersGear.Models ;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace CodersGear.DataAccess.Repository
+{
+    public class ProductRepository : Repository<Product>, IProductRepository
+    {
+        private ApplicationDbContext _db;
+        public ProductRepository(ApplicationDbContext db) : base(db)
+        {
+            _db = db;
+        }
+        public void Update(Product obj)
+        {
+
+
+            var objFromDb = _db.Products.FirstOrDefault(s => s.ProductId == obj.ProductId);
+            if (objFromDb != null)
+            {
+                objFromDb.ProductName = obj.ProductName;
+                objFromDb.Description = obj.Description;
+                objFromDb.Price = obj.Price;
+                objFromDb.CategoryId = obj.CategoryId;
+                objFromDb.ListPrice = obj.ListPrice;
+                objFromDb.Price50 = obj.Price50;
+                objFromDb.Price100 = obj.Price100;
+                objFromDb.UPC = obj.UPC;
+                if (obj.ImageUrl != null)
+                {
+                    objFromDb.ImageUrl = obj.ImageUrl;
+                }
+
+
+            }
+        }
+    }
+}

@@ -1,0 +1,216 @@
+@model List<Product>
+
+@{
+    var currentSortColumn = ViewData["CurrentSortColumn"] as string ?? "ProductId";
+    var currentSortOrder = ViewData["CurrentSortOrder"] as string ?? "asc";
+    var currentSearch = ViewData["CurrentSearch"] as string ?? "";
+    var currentPage = (int)(ViewData["CurrentPage"] ?? 1);
+    var pageSize = (int)(ViewData["PageSize"] ?? 10);
+    var totalPages = (int)(ViewData["TotalPages"] ?? 1);
+    var totalCount = (int)(ViewData["TotalCount"] ?? 0);
+
+    string GetSortIcon(string column)
+    {
+        if (currentSortColumn != column) return " ⇅";
+        return currentSortOrder == "asc" ? " ▲" : " ▼";
+    }
+
+    string GetSortOrder(string column)
+    {
+        if (currentSortColumn != column) return "asc";
+        return currentSortOrder == "asc" ? "desc" : "asc";
+    }
+
+    var productNameSortOrder = GetSortOrder("ProductName");
+    var upcSortOrder = GetSortOrder("UPC");
+    var priceSortOrder = GetSortOrder("Price");
+    var categorySortOrder = GetSortOrder("Category");
+}
+
+<div class="container">
+    <div class="row pt-4 pb-1">
+        <div class="col-6">
+            <h2 class="text-secondary">
+                Product List
+            </h2>
+        </div>
+        <div class="col-6 text-end">
+            <a asp-controller="Product"
+               asp-action="Upsert"
+               class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Create New Product
+            </a>
+        </div>
+    </div>
+
+    <!-- Search Box -->
+    <div class="row pb-3">
+        <div class="col-12">
+            <form asp-action="Index" method="get" class="d-flex gap-2">
+                <input type="hidden" name="sortColumn" value="@currentSortColumn" />
+                <input type="hidden" name="sortOrder" value="@currentSortOrder" />
+                <div class="input-group">
+                    <input type="text" name="search" value="@currentSearch" class="form-control" placeholder="Search by Product Name, UPC, or Category..." />
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                    @if (!string.IsNullOrEmpty(currentSearch))
+                    {
+                        <a asp-action="Index" asp-route-sortColumn="@currentSortColumn" asp-route-sortOrder="@currentSortOrder" class="btn btn-secondary">
+                            <i class="bi bi-x-circle"></i> Clear
+                        </a>
+                    }
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Results Info -->
+    <div class="row pb-2">
+        <div class="col-12">
+            <span class="text-muted">
+                Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, totalCount) of @totalCount products
+                @if (!string.IsNullOrEmpty(currentSearch))
+                {
+                    <text> (filtered from search)</text>
+                }
+            </span>
+        </div>
+    </div>
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th>
+                    <a asp-action="Index"
+                       asp-route-sortColumn="ProductName"
+                       asp-route-sortOrder="@productNameSortOrder"
+                       class="text-decoration-none text-light">
+                        <text>Product Name</text>@GetSortIcon("ProductName")
+                    </a>
+                </th>
+                <th>
+                    <a asp-action="Index"
+                       asp-route-sortColumn="UPC"
+                       asp-route-sortOrder="@upcSortOrder"
+                       class="text-decoration-none text-light">
+                        <text>UPC</text>@GetSortIcon("UPC")
+                    </a>
+                </th>
+                <th>
+                    <a asp-action="Index"
+                       asp-route-sortColumn="Price"
+                       asp-route-sortOrder="@priceSortOrder"
+                       class="text-decoration-none text-light">
+                        <text>Price</text>@GetSortIcon("Price")
+                    </a>
+                </th>
+                <th>
+                    <a asp-action="Index"
+                       asp-route-sortColumn="Category"
+                       asp-route-sortOrder="@categorySortOrder"
+                       class="text-decoration-none text-light">
+                        <text>Category</text>@GetSortIcon("Category")
+                    </a>
+                </th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var product in Model)
+            {
+                <tr>
+                    <td>@product.ProductName</td>
+                    <td>@product.UPC</td>
+                    <td>@product.Price</td>
+                    <td>@product.Category?.Name</td>
+                    <td>
+                        <div class="w-75 btn-group" role="group">
+                            <a asp-controller="Product"
+                               asp-action="Upsert"
+                               asp-route-id="@product.ProductId"
+                               class="btn btn-primary mx-2">
+                                <i class="bi bi-pencil-square"></i> Edit
+                            </a>
+                            <a asp-controller="Product"
+                               asp-action="Delete"
+                               asp-route-id="@product.ProductId"
+                               class="btn btn-danger mx-2">
+                                <i class="bi bi-trash-fill"></i> Delete
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <!-- Pagination -->
+    @if (totalPages > 1)
+    {
+        <nav aria-label="Product pagination">
+            <ul class="pagination justify-content-center">
+                @if (currentPage > 1)
+                {
+                    <li class="page-item">
+                        <a class="page-link"
+                           asp-action="Index"
+                           asp-route-sortColumn="@currentSortColumn"
+                           asp-route-sortOrder="@currentSortOrder"
+                           asp-route-search="@currentSearch"
+                           asp-route-page="1">
+                            First
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link"
+                           asp-action="Index"
+                           asp-route-sortColumn="@currentSortColumn"
+                           asp-route-sortOrder="@currentSortOrder"
+                           asp-route-search="@currentSearch"
+                           asp-route-page="@(currentPage - 1)">
+                            Previous
+                        </a>
+                    </li>
+                }
+
+                @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                {
+                    <li class="page-item @(i == currentPage ? "active" : "")">
+                        <a class="page-link"
+                           asp-action="Index"
+                           asp-route-sortColumn="@currentSortColumn"
+                           asp-route-sortOrder="@currentSortOrder"
+                           asp-route-search="@currentSearch"
+                           asp-route-page="@i">
+                            @i
+                        </a>
+                    </li>
+                }
+
+                @if (currentPage < totalPages)
+                {
+                    <li class="page-item">
+                        <a class="page-link"
+                           asp-action="Index"
+                           asp-route-sortColumn="@currentSortColumn"
+                           asp-route-sortOrder="@currentSortOrder"
+                           asp-route-search="@currentSearch"
+                           asp-route-page="@(currentPage + 1)">
+                            Next
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link"
+                           asp-action="Index"
+                           asp-route-sortColumn="@currentSortColumn"
+                           asp-route-sortOrder="@currentSortOrder"
+                           asp-route-search="@currentSearch"
+                           asp-route-page="@totalPages">
+                            Last
+                        </a>
+                    </li>
+                }
+            </ul>
+        </nav>
+    }
+</div>
