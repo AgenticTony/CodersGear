@@ -316,6 +316,12 @@ namespace CodersGear.Areas.Customer.Controllers
                             // Update order status if not already updated by webhook
                             if (orderHeader.PaymentStatus != SD.PaymentStatus_Approved)
                             {
+                                // Update PaymentIntentId if available
+                                if (!string.IsNullOrEmpty(session.PaymentIntentId))
+                                {
+                                    _unitOfWork.OrderHeader.UpdateStripePaymentID(id, orderHeader.SessionId, session.PaymentIntentId);
+                                }
+
                                 _unitOfWork.OrderHeader.UpdateStatus(id, SD.Status_Approved, SD.PaymentStatus_Approved);
 
                                 // Clear shopping cart
