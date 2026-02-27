@@ -1,13 +1,16 @@
 using System.Diagnostics;
+using System.Security.Claims;
 using CodersGear.DataAccess.Repository.IRepository;
 using CodersGear.Models;
 using CodersGear.Models.ViewModels;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CodersGear.Areas.Customer.Controllers
 {
     [Area("Customer")]
-    public class HomeController : Controller
+    public class 
+        HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;
         private readonly IUnitOfWork _unitOfWork;
@@ -39,11 +42,109 @@ namespace CodersGear.Areas.Customer.Controllers
             return View(categoryGroups);
         }
 
-        public IActionResult Details(int productId)
+        public IActionResult Details(int? productId)
         {
+            if (productId == null || productId == 0)
+            {
+                return RedirectToAction(nameof(Index));
+            }
+
             // Get all products with categories
-            Product product = _unitOfWork.Product.Get(u=>u.ProductId==productId, includeProperties: "Category");
-            return View(product);
+            ShoppingCart cart = new()
+            {
+                Count = 1,
+                ProductId = productId.Value,
+                Product = _unitOfWork.Product.Get(u => u.ProductId == productId.Value, includeProperties: "Category")
+            };
+
+            if (cart.Product == null)
+            {
+                return RedirectToAction(nameof(Index));
+            }
+
+            return View(cart);
+        }
+        [HttpPost]
+        public IActionResult Details(ShoppingCart shoppingCart)
+        {
+            // Check if user is authenticated
+            if (User.Identity == null || !User.Identity.IsAuthenticated)
+            {
+                // Not logged in - redirect to login with returnUrl back to product page
+                string returnUrl = $"/Customer/Home/Details/{shoppingCart.ProductId}";
+                return Redirect($"/Identity/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}");
+            }
+
+            var claimsIdentity = (ClaimsIdentity)User.Identity;
+            var userId = claimsIdentity.FindFirst(ClaimTypes.NameIdentifier).Value;
+            shoppingCart.ApplicationUserId = userId;
+
+            // Check if shopping cart already exists for this user and product
+            // Using tracked: false so we don't accidentally auto-update without calling Update()
+            ShoppingCart cartFromDb = _unitOfWork.ShoppingCart.Get(
+                u => u.ApplicationUserId == userId && u.ProductId == shoppingCart.ProductId,
+                tracked: false);
+
+            if (cartFromDb != null)
+            {
+                // Shopping cart already exists, update the count
+                shoppingCart.Count += cartFromDb.Count;
+                _unitOfWork.ShoppingCart.Update(shoppingCart);
+            }
+            else
+            {
+                // Shopping cart doesn't exist, add new entry
+                _unitOfWork.ShoppingCart.Add(shoppingCart);
+            }
+
+            _unitOfWork.Save();
+            TempData["success"] = "Cart updated successfully";
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        public IActionResult BuyNow(int productId)
+        {
+            // Check if user is authenticated
+            if (User.Identity == null || !User.Identity.IsAuthenticated)
+            {
+                // Not logged in - redirect to login with returnUrl to this product
+                string returnUrl = $"/Customer/Home/Details/{productId}";
+                return Redirect($"/Identity/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}");
+            }
+
+            var claimsIdentity = (ClaimsIdentity)User.Identity;
+            var userId = claimsIdentity.FindFirst(ClaimTypes.NameIdentifier).Value;
+
+            // Check if shopping cart already exists for this user and product
+            ShoppingCart cartFromDb = _unitOfWork.ShoppingCart.Get(
+                u => u.ApplicationUserId == userId && u.ProductId == productId,
+                tracked: false);
+
+            ShoppingCart shoppingCart = new ShoppingCart
+            {
+                ProductId = productId,
+                Count = 1,
+                ApplicationUserId = userId
+            };
+
+            if (cartFromDb != null)
+            {
+                // Shopping cart already exists, update the count
+                shoppingCart.Count += cartFromDb.Count;
+                _unitOfWork.ShoppingCart.Update(shoppingCart);
+            }
+            else
+            {
+                // Shopping cart doesn't exist, add new entry
+                _unitOfWork.ShoppingCart.Add(shoppingCart);
+            }
+
+            _unitOfWork.Save();
+            TempData["success"] = "Item added to cart";
+
+            // Redirect to Cart page (not Index)
+            return RedirectToAction("Index", "Cart");
         }
 
         public IActionResult Hoddies()

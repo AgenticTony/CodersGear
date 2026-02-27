@@ -14,7 +14,10 @@ namespace CodersGear.DataAccess.Data
 
         public DbSet<Category> Categories { get; set; }
         public DbSet<Product> Products { get; set; }
+        public DbSet<ShoppingCart> ShoppingCarts { get; set; }
         public DbSet<ApplicationUser> ApplicationUsers { get; set; }
+        public DbSet<OrderHeader> OrderHeaders { get; set; }
+        public DbSet<OrderDetail> OrderDetails { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -28,17 +31,18 @@ namespace CodersGear.DataAccess.Data
                );
             modelBuilder.Entity<Product>().HasData(
                     new Product
-                    { 
+                    {
 
-                        ProductId = 1, 
-                        ProductName = "Coder's Gear T-shirt", 
-                        Description = "A comfortable and stylish t-shirt for coders.", 
+                        ProductId = 1,
+                        ProductName = "Coder's Gear T-shirt",
+                        Description = "A comfortable and stylish t-shirt for coders.",
                         ListPrice = 28.99m,
-                        Price = 23.99m, 
+                        Price = 23.99m,
                         Price50 = 21.99m,
                         Price100 = 18.99m,
                         CategoryId = 1,
-                        UPC = "123456789012"
+                        UPC = "123456789012",
+                        ImageUrl = "/images/product/8ab587da-7087-4790-848b-44882097a3e0.jpg"
                     },
 
                     new Product
@@ -51,7 +55,8 @@ namespace CodersGear.DataAccess.Data
                         Price50 = 36.99m,
                         Price100 = 32.99m,
                         CategoryId = 2,
-                        UPC = "123456789013"
+                        UPC = "123456789013",
+                        ImageUrl = "/images/product/a49a695e-cb70-442a-970b-0a4aed5e064d.jpg"
                     },
                     new Product
                     {
@@ -63,7 +68,8 @@ namespace CodersGear.DataAccess.Data
                         Price50 = 12.99m,
                         Price100 = 9.99m,
                         CategoryId = 3,
-                        UPC = "123456789014"
+                        UPC = "123456789014",
+                        ImageUrl = "/images/product/da05ef9c-05f7-4554-a5cf-02088b53c821.jpg"
                      },
                     new Product
                     {
@@ -75,7 +81,8 @@ namespace CodersGear.DataAccess.Data
                         Price50 = 22.99m,
                         Price100 = 19.99m,
                         CategoryId = 4,
-                        UPC = "123456789015"
+                        UPC = "123456789015",
+                        ImageUrl = "/images/product/e603a324-fbf8-4c9a-9e5c-0f7ff3141cf4.jpg"
                     }
                 );
 

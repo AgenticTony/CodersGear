@@ -4,6 +4,7 @@ using CodersGear.DataAccess.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CodersGear.DataAccess.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260213083614_addShoppingcartToDb")]
+    partial class addShoppingcartToDb
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -69,112 +72,6 @@ namespace CodersGear.DataAccess.Migrations
                         });
                 });
 
-            modelBuilder.Entity("CodersGear.Models.OrderDetail", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("Count")
-                        .HasColumnType("int");
-
-                    b.Property<int>("OrderHeaderId")
-                        .HasColumnType("int");
-
-                    b.Property<double>("Price")
-                        .HasColumnType("float");
-
-                    b.Property<int>("ProductId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrderHeaderId");
-
-                    b.HasIndex("ProductId");
-
-                    b.ToTable("OrderDetails");
-                });
-
-            modelBuilder.Entity("CodersGear.Models.OrderHeader", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ApplicationUserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Carrier")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("City")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Country")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("OrderDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("OrderStatus")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<double>("OrderTotal")
-                        .HasColumnType("float");
-
-                    b.Property<DateTime>("PaymentDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateOnly>("PaymentDueDate")
-                        .HasColumnType("date");
-
-                    b.Property<string>("PaymentIntentId")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PaymentStatus")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PhoneNumber")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PostalCode")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("ShippingDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("State")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("StreetAddress")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TrackingNumber")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ApplicationUserId");
-
-                    b.ToTable("OrderHeaders");
-                });
-
             modelBuilder.Entity("CodersGear.Models.Product", b =>
                 {
                     b.Property<int>("ProductId")
@@ -225,7 +122,6 @@ namespace CodersGear.DataAccess.Migrations
                             ProductId = 1,
                             CategoryId = 1,
                             Description = "A comfortable and stylish t-shirt for coders.",
-                            ImageUrl = "/images/product/8ab587da-7087-4790-848b-44882097a3e0.jpg",
                             ListPrice = 28.99m,
                             Price = 23.99m,
                             Price100 = 18.99m,
@@ -238,7 +134,6 @@ namespace CodersGear.DataAccess.Migrations
                             ProductId = 2,
                             CategoryId = 2,
                             Description = "A cozy hoodie for coders to stay warm while coding.",
-                            ImageUrl = "/images/product/a49a695e-cb70-442a-970b-0a4aed5e064d.jpg",
                             ListPrice = 44.99m,
                             Price = 39.99m,
                             Price100 = 32.99m,
@@ -251,7 +146,6 @@ namespace CodersGear.DataAccess.Migrations
                             ProductId = 3,
                             CategoryId = 3,
                             Description = "A mug for coders to enjoy their favorite beverages while coding.",
-                            ImageUrl = "/images/product/da05ef9c-05f7-4554-a5cf-02088b53c821.jpg",
                             ListPrice = 19.99m,
                             Price = 14.99m,
                             Price100 = 9.99m,
@@ -264,7 +158,6 @@ namespace CodersGear.DataAccess.Migrations
                             ProductId = 4,
                             CategoryId = 4,
                             Description = "A protective laptop sleeve for coders to carry their laptops in style.",
-                            ImageUrl = "/images/product/e603a324-fbf8-4c9a-9e5c-0f7ff3141cf4.jpg",
                             ListPrice = 29.99m,
                             Price = 24.99m,
                             Price100 = 19.99m,
@@ -288,9 +181,6 @@ namespace CodersGear.DataAccess.Migrations
 
                     b.Property<int>("Count")
                         .HasColumnType("int");
-
-                    b.Property<double>("OrderTotal")
-                        .HasColumnType("float");
 
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
@@ -518,9 +408,6 @@ namespace CodersGear.DataAccess.Migrations
                     b.Property<string>("City")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Country")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("Name")
                         .HasColumnType("nvarchar(max)");
 
@@ -534,36 +421,6 @@ namespace CodersGear.DataAccess.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasDiscriminator().HasValue("ApplicationUser");
-                });
-
-            modelBuilder.Entity("CodersGear.Models.OrderDetail", b =>
-                {
-                    b.HasOne("CodersGear.Models.OrderHeader", "OrderHeader")
-                        .WithMany()
-                        .HasForeignKey("OrderHeaderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CodersGear.Models.Product", "Product")
-                        .WithMany()
-                        .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("OrderHeader");
-
-                    b.Navigation("Product");
-                });
-
-            modelBuilder.Entity("CodersGear.Models.OrderHeader", b =>
-                {
-                    b.HasOne("CodersGear.Models.ApplicationUser", "ApplicationUser")
-                        .WithMany()
-                        .HasForeignKey("ApplicationUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ApplicationUser");
                 });
 
             modelBuilder.Entity("CodersGear.Models.Product", b =>

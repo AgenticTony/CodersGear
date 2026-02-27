@@ -1,24 +1,24 @@
-@model Product
+@model ShoppingCart
 @using CodersGear.Utility
 
 @{
-    ViewData["Title"] = Model?.ProductName ?? "Product Details";
+    ViewData["Title"] = Model.Product?.ProductName ?? "Product Details";
 
     // Determine the category action based on category name
     string categoryAction = "Index";
-    if (Model?.Category?.Name?.Contains("T-shirt") == true || Model?.Category?.Name?.Contains("T-Shirt") == true)
+    if (Model.Product?.Category?.Name?.Contains("T-shirt") == true || Model.Product?.Category?.Name?.Contains("T-Shirt") == true)
     {
         categoryAction = "TShirts";
     }
-    else if (Model?.Category?.Name?.Contains("Hoodi") == true)
+    else if (Model.Product?.Category?.Name?.Contains("Hoodi") == true)
     {
         categoryAction = "Hoddies";
     }
-    else if (Model?.Category?.Name?.Contains("Mug") == true)
+    else if (Model.Product?.Category?.Name?.Contains("Mug") == true)
     {
         categoryAction = "Mugs";
     }
-    else if (Model?.Category?.Name?.Contains("Accessorie") == true)
+    else if (Model.Product?.Category?.Name?.Contains("Accessorie") == true)
     {
         categoryAction = "Accessories";
     }
@@ -26,15 +26,16 @@
 
 <!-- Breadcrumb -->
 <nav aria-label="breadcrumb" class="mt-3">
+    
     <div class="container">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a asp-area="Customer" asp-controller="Home" asp-action="Index" class="text-decoration-none">Home</a></li>
             <li class="breadcrumb-item">
                 <a asp-area="Customer" asp-controller="Home" asp-action="@categoryAction" class="text-decoration-none">
-                    @Model?.Category?.Name
+                    @Model.Product?.Category?.Name
                 </a>
             </li>
-            <li class="breadcrumb-item active" aria-current="page">@Model?.ProductName</li>
+            <li class="breadcrumb-item active" aria-current="page">@Model.Product?.ProductName</li>
         </ol>
     </div>
 </nav>
@@ -46,9 +47,9 @@
         <div class="col-lg-6">
             <div class="card shadow-sm border-0">
                 <div class="card-body p-0">
-                    <img src="@(Model?.ImageUrl ?? "/images/product/placeholder.png")"
+                    <img src="@(Model.Product?.ImageUrl ?? "/images/product/placeholder.png")"
                          class="img-fluid w-100 rounded"
-                         alt="@Model?.ProductName"
+                         alt="@Model.Product?.ProductName"
                          id="mainProductImage">
                 </div>
             </div>
@@ -57,10 +58,10 @@
             <div class="row g-2 mt-2">
                 <div class="col-3">
                     <div class="card">
-                        <img src="@(Model?.ImageUrl ?? "/images/product/placeholder.png")"
+                        <img src="@(Model.Product?.ImageUrl ?? "/images/product/placeholder.png")"
                              class="img-fluid rounded cursor-pointer"
                              alt="Thumbnail"
-                             onclick="changeImage('@(Model?.ImageUrl ?? "/images/product/placeholder.png")')">
+                             onclick="changeImage('@(Model.Product?.ImageUrl ?? "/images/product/placeholder.png")')">
                     </div>
                 </div>
                 <!-- More thumbnails can be added here -->
@@ -77,8 +78,10 @@
 
         <!-- Product Info -->
         <div class="col-lg-6">
-            <div class="sticky-top" style="top: 80px;">
-                <h1 class="display-5 fw-bold mb-2">@Model?.ProductName</h1>
+            <form method="post" asp-action="Details">
+                <input hidden asp-for="ProductId" />
+                <div class="sticky-top" style="top: 80px;">
+                    <h1 class="display-5 fw-bold mb-2">@Model.Product?.ProductName</h1>
 
                 <!-- Rating -->
                 <div class="mb-3">
@@ -96,10 +99,14 @@
                 <div class="card mb-4 border-0 bg-light">
                     <div class="card-body">
                         <div class="d-flex align-items-baseline gap-2">
-                            <span class="text-info text-decoration-line-through">@Model?.ListPrice.ToString("C")</span>
-                            <span class="display-6 fw-bold text-primary">@Model?.Price.ToString("C")</span>
+                            <span class="text-info text-decoration-line-through">@Model.Product?.ListPrice.ToString("C")</span>
+                            <span class="display-6 fw-bold text-primary">@Model.Product?.Price.ToString("C")</span>
                             @{
-                                var savings = Model?.ListPrice - Model?.Price ?? 0m;
+                                decimal savings = 0m;
+                                if (Model.Product != null)
+                                {
+                                    savings = Model.Product.ListPrice - Model.Product.Price;
+                                }
                             }
                             <span class="badge bg-danger">Save @savings.ToString("C")</span>
                         </div>
@@ -113,10 +120,10 @@
                         <h6 class="mb-0"><i class="bi bi-file-text"></i> Description</h6>
                     </div>
                     <div class="card-body">
-                        @if (!string.IsNullOrEmpty(Model?.Description))
+                        @if (!string.IsNullOrEmpty(Model.Product?.Description))
                         {
                             <div class="text-muted">
-                                @Html.Raw(Model.Description)
+                                @Html.Raw(Model.Product.Description)
                             </div>
                         }
                         else
@@ -136,16 +143,17 @@
                             <div class="col-auto">
                                 <div class="input-group input-group-sm" style="width: 95px;">
                                     <button class="btn btn-outline-secondary" type="button" onclick="decreaseQty()">-</button>
-                                    <input type="number" class="form-control text-center px-1" value="1" min="1" id="quantityInput" style="appearance: textfield; -moz-appearance: textfield;">
+                                    <input asp-for="Count" type="number" class="form-control text-center px-1" value="1" min="1" id="quantityInput" style="appearance: textfield; -moz-appearance: textfield;">
                                     <button class="btn btn-outline-secondary" type="button" onclick="increaseQty()">+</button>
                                 </div>
                             </div>
                             <div class="col">
-                                <button class="btn btn-primary w-100">
+                                <button type="submit" class="btn btn-primary w-100">
                                     <i class="bi bi-cart-plus"></i> Add to Cart
                                 </button>
                             </div>
                         </div>
+                    </form>
                     </div>
                 </div>
 
@@ -202,8 +210,13 @@
                 <!-- Bulk Pricing Tab -->
                 <div class="tab-pane fade show active" id="bulk" role="tabpanel">
 @{
-    var savings50 = Model?.Price - Model?.Price50 ?? 0m;
-    var savings100 = Model?.Price - Model?.Price100 ?? 0m;
+    decimal savings50 = 0m;
+    decimal savings100 = 0m;
+    if (Model.Product != null)
+    {
+        savings50 = Model.Product.Price - Model.Product.Price50;
+        savings100 = Model.Product.Price - Model.Product.Price100;
+    }
 }
                     <div class="card border-0">
                         <div class="card-body p-0">
@@ -218,17 +231,17 @@
                                 <tbody>
                                     <tr>
                                         <td>1-50 items</td>
-                                        <td class="text-end">@Model?.Price.ToString("C")</td>
+                                        <td class="text-end">@Model.Product?.Price.ToString("C")</td>
                                         <td class="text-end">-</td>
                                     </tr>
                                     <tr>
                                         <td>50-100 items</td>
-                                        <td class="text-end text-success fw-bold">@Model?.Price50.ToString("C")</td>
+                                        <td class="text-end text-success fw-bold">@Model.Product?.Price50.ToString("C")</td>
                                         <td class="text-end text-success">@savings50.ToString("C")</td>
                                     </tr>
                                     <tr>
                                         <td>100+ items</td>
-                                        <td class="text-end text-success fw-bold">@Model?.Price100.ToString("C")</td>
+                                        <td class="text-end text-success fw-bold">@Model.Product?.Price100.ToString("C")</td>
                                         <td class="text-end text-success">@savings100.ToString("C")</td>
                                     </tr>
                                 </tbody>
@@ -243,15 +256,15 @@
                         <tbody>
                             <tr>
                                 <th scope="row">Product ID</th>
-                                <td>@Model?.ProductId</td>
+                                <td>@Model.Product?.ProductId</td>
                             </tr>
                             <tr>
                                 <th scope="row">UPC</th>
-                                <td>@Model?.UPC</td>
+                                <td>@Model.Product?.UPC</td>
                             </tr>
                             <tr>
                                 <th scope="row">Category</th>
-                                <td>@Model?.Category?.Name</td>
+                                <td>@Model.Product?.Category?.Name</td>
                             </tr>
                         </tbody>
                     </table>
