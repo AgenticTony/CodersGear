@@ -16,9 +16,9 @@ namespace CodersGear.DataAccess.Repository
         public Repository(ApplicationDbContext db)
         {
             _db = db;
-                this.dbSet = _db.Set<T>();
-            _db.Products.Include(u => u.Category);
+            this.dbSet = _db.Set<T>();
         }
+
         public void Add(T entity)
         {
             dbSet.Add(entity);
@@ -73,6 +73,11 @@ namespace CodersGear.DataAccess.Repository
         public void RemoveRange(IEnumerable<T> entities)
         {
            dbSet.RemoveRange(entities);
+        }
+
+        public void Update(T entity)
+        {
+            dbSet.Update(entity);
         }
     }
 }

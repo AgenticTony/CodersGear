@@ -1,9 +1,12 @@
 using CodersGear.DataAccess.Repository.IRepository;
 using CodersGear.Models;
 using CodersGear.Models.ViewModels;
+using CodersGear.Utility;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using Stripe;
+using Stripe.Checkout;
 
 namespace CodersGear.Areas.Customer.Controllers
 {
@@ -12,6 +15,7 @@ namespace CodersGear.Areas.Customer.Controllers
     public class CartController : Controller
     {
         private readonly IUnitOfWork _unitOfWork;
+        [BindProperty]
         public ShoppingCartVM ShoppingCartVM { get; set; }
 
         public CartController(IUnitOfWork unitOfWork)
@@ -116,29 +120,255 @@ namespace CodersGear.Areas.Customer.Controllers
         }
 
         [HttpPost]
-        public IActionResult Summary(ShoppingCartVM shoppingCartVM)
+        [ActionName("Summary")]
+        public IActionResult SummaryPOST()
         {
-            // This is where you would process payment
-            // For now, just show a success message
-            TempData["success"] = "Order placed successfully! (Demo mode - no actual payment processed)";
-            return RedirectToAction("Index", "Home");
+            var claimsIdentity = (ClaimsIdentity)User.Identity;
+            var userId = claimsIdentity.FindFirst(ClaimTypes.NameIdentifier).Value;
+
+            // Populate ShoppingCartList from database
+            ShoppingCartVM.ShoppingCartList = _unitOfWork.ShoppingCart.GetAll(u => u.ApplicationUserId == userId,
+                includeProperties: "Product,Product.Category");
+
+            // Get ApplicationUser
+            var applicationUser = _unitOfWork.ApplicationUser.Get(u => u.Id == userId);
+
+            // Clear any existing model state errors
+            ModelState.Clear();
+
+            // Populate from ApplicationUser if fields are empty or null
+            ShoppingCartVM.OrderHeader.Name ??= applicationUser?.Name ?? "";
+            ShoppingCartVM.OrderHeader.PhoneNumber ??= applicationUser?.PhoneNumber ?? "";
+            ShoppingCartVM.OrderHeader.StreetAddress ??= applicationUser?.StreetAddress ?? "";
+            ShoppingCartVM.OrderHeader.City ??= applicationUser?.City ?? "";
+            ShoppingCartVM.OrderHeader.State ??= applicationUser?.State ?? "";
+            ShoppingCartVM.OrderHeader.PostalCode ??= applicationUser?.PostalCode ?? "";
+            ShoppingCartVM.OrderHeader.Country ??= applicationUser?.Country ?? "";
+
+            // Set OrderDate and ApplicationUserId
+            ShoppingCartVM.OrderHeader.OrderDate = DateTime.Now;
+            ShoppingCartVM.OrderHeader.ApplicationUserId = userId;
+
+            // Calculate order total
+            foreach (var cart in ShoppingCartVM.ShoppingCartList)
+            {
+                cart.Price = GetPriceBasedOnQuantity(cart);
+                ShoppingCartVM.OrderHeader.OrderTotal += (cart.Price * cart.Count);
+            }
+
+            // Check if it's a company account or regular customer
+            if (applicationUser.CompanyId.GetValueOrDefault() == 0)
+            {
+                // Regular customer - payment required via Stripe
+                ShoppingCartVM.OrderHeader.OrderStatus = SD.Status_Pending;
+                ShoppingCartVM.OrderHeader.PaymentStatus = SD.PaymentStatus_Pending;
+            }
+            else
+            {
+                // Company account - 30 days delayed payment
+                ShoppingCartVM.OrderHeader.OrderStatus = SD.Status_Approved;
+                ShoppingCartVM.OrderHeader.PaymentStatus = SD.PaymentStatus_DelayedPayment;
+            }
+
+            // Create OrderHeader
+            _unitOfWork.OrderHeader.Add(ShoppingCartVM.OrderHeader);
+            _unitOfWork.Save();
+
+            // Create OrderDetail for each item in shopping cart
+            foreach (var cart in ShoppingCartVM.ShoppingCartList)
+            {
+                OrderDetail orderDetail = new()
+                {
+                    ProductId = cart.ProductId,
+                    OrderHeaderId = ShoppingCartVM.OrderHeader.Id,
+                    Price = cart.Price,
+                    Count = cart.Count
+                };
+                _unitOfWork.OrderDetail.Add(orderDetail);
+            }
+            _unitOfWork.Save();
+
+            // Check if it's a company account or regular customer for payment processing
+            if (applicationUser.CompanyId.GetValueOrDefault() == 0)
+            {
+                // Regular customer - capture payment via Stripe
+
+                // STRIPE BEST PRACTICE: Create or retrieve customer first
+                var customerService = new CustomerService();
+                string stripeCustomerId;
+
+                // Check if user already has a Stripe customer ID
+                if (!string.IsNullOrEmpty(applicationUser.StripeCustomerId))
+                {
+                    stripeCustomerId = applicationUser.StripeCustomerId;
+                }
+                else
+                {
+                    // Create new customer in Stripe
+                    var customerOptions = new CustomerCreateOptions
+                    {
+                        Email = applicationUser.Email,
+                        Name = applicationUser.Name,
+                        Phone = applicationUser.PhoneNumber,
+                        Metadata = new Dictionary<string, string>
+                        {
+                            { "application_user_id", applicationUser.Id }
+                        }
+                    };
+                    var customer = customerService.Create(customerOptions);
+                    stripeCustomerId = customer.Id;
+
+                    // Optionally save customer ID to ApplicationUser for future use
+                    // (This would require updating ApplicationUser model and repository)
+                }
+
+                var domain = Request.Scheme + "://" + Request.Host.Value + "/";
+
+                var options = new SessionCreateOptions
+                {
+                    // STRIPE BEST PRACTICE: Always associate customer with session
+                    Customer = stripeCustomerId,
+
+                    // STRIPE BEST PRACTICE: Use {CHECKOUT_SESSION_ID} placeholder for reliable tracking
+                    SuccessUrl = domain + $"customer/cart/orderconfirmation?id={ShoppingCartVM.OrderHeader.Id}&session_id={{CHECKOUT_SESSION_ID}}",
+                    CancelUrl = domain + "customer/cart/index",
+
+                    // STRIPE BEST PRACTICE: Add metadata for tracking and reconciliation
+                    Metadata = new Dictionary<string, string>
+                    {
+                        { "order_id", ShoppingCartVM.OrderHeader.Id.ToString() },
+                        { "user_id", userId }
+                    },
+
+                    LineItems = new List<SessionLineItemOptions>(),
+                    Mode = "payment",
+                };
+
+                // Add line items for each product in shopping cart
+                foreach (var item in ShoppingCartVM.ShoppingCartList)
+                {
+                    var sessionLineItem = new SessionLineItemOptions
+                    {
+                        PriceData = new SessionLineItemPriceDataOptions
+                        {
+                            UnitAmount = (long)(item.Price * 100), // Stripe requires amount in cents
+                            Currency = "usd",
+                            ProductData = new SessionLineItemPriceDataProductDataOptions
+                            {
+                                Name = item.Product.ProductName,
+                                Description = item.Product.Description
+                            },
+                        },
+                        Quantity = item.Count
+                    };
+                    options.LineItems.Add(sessionLineItem);
+                }
+
+                // Create Stripe checkout session
+                var service = new SessionService();
+                Session session = service.Create(options);
+
+                // Update OrderHeader with Stripe session info
+                _unitOfWork.OrderHeader.UpdateStripePaymentID(ShoppingCartVM.OrderHeader.Id, session.Id, session.PaymentIntentId, stripeCustomerId);
+                _unitOfWork.Save();
+
+                // Redirect to Stripe checkout using HTTP 303 (See Other)
+                Response.Headers.Add("Location", session.Url);
+                return new StatusCodeResult(303);
+            }
+            else
+            {
+                // Company account - redirect to order confirmation page
+                return RedirectToAction(nameof(OrderConfirmation), new { id = ShoppingCartVM.OrderHeader.Id });
+            }
         }
 
-        private double GetPriceBasedOnQuantity(ShoppingCart shoppingCart)
+        public IActionResult OrderConfirmation(int id)
+        {
+            // Get order from database
+            OrderHeader orderHeader = _unitOfWork.OrderHeader.Get(o => o.Id == id);
+
+            if (orderHeader == null)
+            {
+                return View("Error", new ErrorViewModel { RequestId = id.ToString() });
+            }
+
+            // Verify payment if this was a Stripe checkout (not company account)
+            if (orderHeader.PaymentStatus == SD.PaymentStatus_DelayedPayment)
+            {
+                // Company account - already approved, show confirmation
+                return View(id);
+            }
+            else
+            {
+                // Regular customer - verify payment with Stripe
+                var sessionService = new SessionService();
+
+                try
+                {
+                    if (!string.IsNullOrEmpty(orderHeader.SessionId))
+                    {
+                        Session session = sessionService.Get(orderHeader.SessionId);
+
+                        // Verify payment status from Stripe
+                        if (session.PaymentStatus == "paid")
+                        {
+                            // Update order status if not already updated by webhook
+                            if (orderHeader.PaymentStatus != SD.PaymentStatus_Approved)
+                            {
+                                _unitOfWork.OrderHeader.UpdateStatus(id, SD.Status_Approved, SD.PaymentStatus_Approved);
+
+                                // Clear shopping cart
+                                var shoppingCartItems = _unitOfWork.ShoppingCart.GetAll(
+                                    sc => sc.ApplicationUserId == orderHeader.ApplicationUserId
+                                ).ToList();
+
+                                if (shoppingCartItems.Any())
+                                {
+                                    _unitOfWork.ShoppingCart.RemoveRange(shoppingCartItems);
+                                    _unitOfWork.Save();
+                                }
+                            }
+
+                            return View(id);
+                        }
+                        else
+                        {
+                            // Payment not yet completed or failed
+                            TempData["error"] = "Payment not completed. Please try again.";
+                            return RedirectToAction("Index", "Cart");
+                        }
+                    }
+                    else
+                    {
+                        // No session ID - something went wrong
+                        TempData["error"] = "Order session not found. Please contact support.";
+                        return View("Error", new ErrorViewModel { RequestId = id.ToString() });
+                    }
+                }
+                catch (StripeException e)
+                {
+                    TempData["error"] = $"Error verifying payment: {e.Message}";
+                    return View("Error", new ErrorViewModel { RequestId = id.ToString() });
+                }
+            }
+        }
+
+        private decimal GetPriceBasedOnQuantity(ShoppingCart shoppingCart)
         {
             if (shoppingCart.Count <= 50)
             {
-                return (double)shoppingCart.Product.Price;
+                return shoppingCart.Product.Price;
             }
             else
             {
                 if (shoppingCart.Count <= 100)
                 {
-                    return (double)shoppingCart.Product.Price50;
+                    return shoppingCart.Product.Price50;
                 }
                 else
                 {
-                    return (double)shoppingCart.Product.Price100;
+                    return shoppingCart.Product.Price100;
                 }
             }
         }

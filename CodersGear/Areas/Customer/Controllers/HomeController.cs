@@ -150,28 +150,28 @@ namespace CodersGear.Areas.Customer.Controllers
         public IActionResult Hoddies()
         {
             IEnumerable<Product> products = _unitOfWork.Product.GetAll(includeProperties: "Category")
-                .Where(p => p.Category != null && p.Category.Name.Contains("Hoodi"));
+                .Where(p => p.CategoryId == 2);
             return View(products);
         }
 
         public IActionResult TShirts()
         {
             IEnumerable<Product> products = _unitOfWork.Product.GetAll(includeProperties: "Category")
-                .Where(p => p.Category != null && p.Category.Name.Contains("T-shirt"));
+                .Where(p => p.CategoryId == 1);
             return View(products);
         }
 
         public IActionResult Mugs()
         {
             IEnumerable<Product> products = _unitOfWork.Product.GetAll(includeProperties: "Category")
-                .Where(p => p.Category != null && p.Category.Name.Contains("Mug"));
+                .Where(p => p.CategoryId == 3);
             return View(products);
         }
 
         public IActionResult Accessories()
         {
             IEnumerable<Product> products = _unitOfWork.Product.GetAll(includeProperties: "Category")
-                .Where(p => p.Category != null && p.Category.Name.Contains("Accessorie"));
+                .Where(p => p.CategoryId == 4);
             return View(products);
         }
 

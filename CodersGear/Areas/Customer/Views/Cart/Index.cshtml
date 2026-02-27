@@ -44,7 +44,7 @@
                                             }
                                         </div>
                                     </td>
-                                    <td>@item.Price.ToString("C")</td>
+                                    <td>@item.Price.ToString("C2", new System.Globalization.CultureInfo("en-US"))</td>
                                     <td>
                                         <div class="input-group input-group-sm" style="width: 120px;">
                                             <a asp-action="Decrement" asp-controller="Cart" asp-route-id="@item.Id" class="btn btn-outline-secondary">-</a>
@@ -52,7 +52,7 @@
                                             <a asp-action="Increment" asp-controller="Cart" asp-route-id="@item.Id" class="btn btn-outline-secondary">+</a>
                                         </div>
                                     </td>
-                                    <td>@((item.Price * item.Count).ToString("C"))</td>
+                                    <td>@((item.Price * item.Count).ToString("C2", new System.Globalization.CultureInfo("en-US")))</td>
                                     <td>
                                         <form asp-action="Remove" asp-controller="Cart" method="post" asp-route-id="@item.Id">
                                             <button type="submit" class="btn btn-sm btn-danger">
@@ -73,7 +73,7 @@
                     <h5 class="card-title">Order Summary</h5>
                     <div class="d-flex justify-content-between mb-2">
                         <span>Total:</span>
-                        <strong>@Model.OrderHeader.OrderTotal.ToString("C")</strong>
+                        <strong>@Model.OrderHeader.OrderTotal.ToString("C2", new System.Globalization.CultureInfo("en-US"))</strong>
                     </div>
                     <div class="d-grid gap-2">
                         <a asp-area="Customer" asp-controller="Home" asp-action="Index" class="btn btn-outline-primary">Continue Shopping</a>
