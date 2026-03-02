@@ -2,6 +2,7 @@ using CodersGear.DataAccess.Data;
 using CodersGear.DataAccess.Repository;
 using CodersGear.DataAccess.Repository.IRepository;
 using CodersGear.Models;
+using CodersGear.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -20,6 +21,15 @@ builder.Services.AddDbContext<ApplicationDbContext>(options=>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
+builder.Services.Configure<PrintifySettings>(builder.Configuration.GetSection("Printify"));
+
+// Register HttpClient for Printify service
+builder.Services.AddHttpClient<IPrintifyService, PrintifyService>();
+builder.Services.AddScoped<IPrintifyProductSyncService, PrintifyProductSyncService>();
+builder.Services.AddScoped<IPrintifyOrderService, PrintifyOrderService>();
+
+// Register Printify background sync service
+builder.Services.AddHostedService<PrintifyBackgroundSyncService>();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options => options.SignIn.RequireConfirmedAccount = true).AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultTokenProviders();
 

@@ -1,5 +1,6 @@
 using CodersGear.DataAccess.Repository.IRepository;
 using CodersGear.Models;
+using CodersGear.Services;
 using CodersGear.Utility;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -14,15 +15,18 @@ namespace CodersGear.Controllers
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly StripeSettings _stripeSettings;
+        private readonly IPrintifyOrderService _printifyOrderService;
         private readonly ILogger<StripeWebhookController> _logger;
 
         public StripeWebhookController(
             IUnitOfWork unitOfWork,
             IOptions<StripeSettings> stripeSettings,
+            IPrintifyOrderService printifyOrderService,
             ILogger<StripeWebhookController> logger)
         {
             _unitOfWork = unitOfWork;
             _stripeSettings = stripeSettings.Value;
+            _printifyOrderService = printifyOrderService;
             _logger = logger;
         }
 
@@ -122,6 +126,13 @@ namespace CodersGear.Controllers
                             _unitOfWork.Save();
 
                             _logger.LogInformation($"Order {orderId} marked as approved and payment complete.");
+
+                            // Send order to Printify if it contains Printify products
+                            Task.Run(async () =>
+                            {
+                                await Task.Delay(1000); // Small delay to ensure DB transaction is complete
+                                await _printifyOrderService.SendOrderToPrintifyAsync(orderId);
+                            });
                         }
                         else
                         {

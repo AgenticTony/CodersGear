@@ -48,5 +48,10 @@ namespace CodersGear.Models
         [Required]
         public string Name { get; set; }
 
+        // Printify Integration Fields
+        public string? PrintifyOrderId { get; set; }
+        public bool SentToPrintify { get; set; } = false;
+        public DateTime? SentToPrintifyAt { get; set; }
+
     }
 }

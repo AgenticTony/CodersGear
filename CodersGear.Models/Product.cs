@@ -43,7 +43,13 @@ namespace CodersGear.Models
 
         [DisplayName("Image URL")]
         public string? ImageUrl { get; set; }
-       
+
+        // Printify Integration Fields
+        public bool IsPrintifyProduct { get; set; } = false;
+        public string? PrintifyProductId { get; set; }
+        public string? PrintifyShopId { get; set; }
+        public string? PrintifyVariantData { get; set; }  // JSON string containing variant info
+        public DateTime? LastSyncedAt { get; set; }
 
     }
 }
