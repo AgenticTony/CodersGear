@@ -51,10 +51,10 @@ namespace CodersGear.Utility
         public int PrintProviderId { get; set; }
 
         [JsonPropertyName("created_at")]
-        public DateTime CreatedAt { get; set; }
+        public string CreatedAt { get; set; } = string.Empty;
 
         [JsonPropertyName("updated_at")]
-        public DateTime UpdatedAt { get; set; }
+        public string UpdatedAt { get; set; } = string.Empty;
     }
 
     public class PrintifyVariant
@@ -209,13 +209,13 @@ namespace CodersGear.Utility
         public List<PrintifyShipment> Shipments { get; set; } = new();
 
         [JsonPropertyName("created_at")]
-        public DateTime CreatedAt { get; set; }
+        public string CreatedAt { get; set; } = string.Empty;
 
         [JsonPropertyName("sent_to_production_at")]
-        public DateTime? SentToProductionAt { get; set; }
+        public string? SentToProductionAt { get; set; }
 
         [JsonPropertyName("fulfilled_at")]
-        public DateTime? FulfilledAt { get; set; }
+        public string? FulfilledAt { get; set; }
     }
 
     public class PrintifyOrderLineItem
@@ -256,7 +256,7 @@ namespace CodersGear.Utility
         public string Type { get; set; } = string.Empty;
 
         [JsonPropertyName("created_at")]
-        public DateTime CreatedAt { get; set; }
+        public string CreatedAt { get; set; } = string.Empty;
 
         [JsonPropertyName("resource")]
         public PrintifyWebhookResource Resource { get; set; } = null!;
@@ -289,7 +289,7 @@ namespace CodersGear.Utility
         public int ShopId { get; set; }
 
         [JsonPropertyName("shipped_at")]
-        public DateTime ShippedAt { get; set; }
+        public string ShippedAt { get; set; } = string.Empty;
 
         [JsonPropertyName("carrier")]
         public PrintifyCarrier Carrier { get; set; } = null!;

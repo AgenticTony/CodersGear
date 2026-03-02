@@ -20,10 +20,18 @@ namespace CodersGear.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Printify Background Sync Service is starting.");
+            _logger.LogInformation("=== Printify Background Sync Service is starting. ===");
 
             // Do an initial sync
-            await PerformSyncAsync(stoppingToken);
+            try
+            {
+                await PerformSyncAsync(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"FATAL ERROR during initial sync: {ex.GetType().Name} - {ex.Message}");
+                _logger.LogError($"Stack Trace: {ex.StackTrace}");
+            }
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -39,13 +47,14 @@ namespace CodersGear.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError($"Error in background sync: {ex.Message}");
+                    _logger.LogError($"Error in background sync: {ex.GetType().Name} - {ex.Message}");
+                    _logger.LogError($"Stack Trace: {ex.StackTrace}");
                     // Wait before retrying to avoid tight error loop
                     await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
                 }
             }
 
-            _logger.LogInformation("Printify Background Sync Service is stopping.");
+            _logger.LogInformation("=== Printify Background Sync Service is stopping. ===");
         }
 
         private async Task PerformSyncAsync(CancellationToken stoppingToken)

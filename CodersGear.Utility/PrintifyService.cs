@@ -64,7 +64,12 @@ namespace CodersGear.Utility
             }
 
             var content = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<List<PrintifyProduct>>(content, _jsonOptions) ?? new List<PrintifyProduct>();
+
+            // Printify API returns paginated response: {"current_page":1,"data":[{products}]}
+            using var jsonDoc = JsonDocument.Parse(content);
+            var dataElement = jsonDoc.RootElement.GetProperty("data");
+
+            return JsonSerializer.Deserialize<List<PrintifyProduct>>(dataElement.GetRawText(), _jsonOptions) ?? new List<PrintifyProduct>();
         }
 
         public async Task<PrintifyProduct?> GetProductAsync(string shopId, string productId)

@@ -14371,3 +14371,23 @@ body {
     .offcanvas .text-muted {
         color: rgba(255, 255, 255, 0.7) !important;
     }
+
+/* CodersGear Custom - Product card clickable link effect */
+.product-card-link {
+    display: block;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    text-decoration: none;
+    color: inherit;
+}
+
+.product-card-link:hover {
+    transform: translateY(-4px);
+}
+
+.product-card-link:hover .card {
+    box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+}
+
+.product-card-link .card {
+    cursor: pointer;
+}

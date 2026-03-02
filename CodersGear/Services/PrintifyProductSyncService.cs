@@ -43,6 +43,10 @@ namespace CodersGear.Services
 
         public async Task SyncProductsAsync()
         {
+            _logger.LogInformation("=== Printify Product Sync Started ===");
+            _logger.LogInformation($"ShopId: '{_settings.ShopId}'");
+            _logger.LogInformation($"ApiUrl: '{_settings.ApiUrl}'");
+
             if (string.IsNullOrEmpty(_settings.ShopId))
             {
                 _logger.LogWarning("Printify ShopId is not configured. Skipping product sync.");
@@ -51,20 +55,25 @@ namespace CodersGear.Services
 
             try
             {
-                _logger.LogInformation("Starting Printify product sync...");
+                _logger.LogInformation("Fetching products from Printify API...");
 
                 var printifyProducts = await _printifyService.GetProductsAsync(_settings.ShopId);
 
+                _logger.LogInformation($"Received {printifyProducts.Count} products from Printify API");
+
                 foreach (var printifyProduct in printifyProducts.Where(p => p.Visible))
                 {
+                    _logger.LogInformation($"Syncing product: {printifyProduct.Title} (ID: {printifyProduct.Id})");
                     await SyncSingleProductAsync(printifyProduct.Id);
                 }
 
-                _logger.LogInformation($"Printify product sync completed. Processed {printifyProducts.Count} products.");
+                _logger.LogInformation($"=== Printify product sync completed. Processed {printifyProducts.Count} products. ===");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error during Printify product sync: {ex.Message}");
+                _logger.LogError($"Error during Printify product sync: {ex.GetType().Name} - {ex.Message}");
+                _logger.LogError($"Stack Trace: {ex.StackTrace}");
+                throw;
             }
         }
 
@@ -152,7 +161,8 @@ namespace CodersGear.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error syncing Printify product {printifyProductId}: {ex.Message}");
+                _logger.LogError($"Error syncing Printify product {printifyProductId}: {ex.GetType().Name} - {ex.Message}");
+                _logger.LogError($"Stack Trace: {ex.StackTrace}");
             }
         }
 

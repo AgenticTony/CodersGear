@@ -145,7 +145,10 @@ namespace CodersGear.Controllers
                         orderHeader.Carrier = shipmentData.Carrier?.Code;
                         orderHeader.TrackingNumber = shipmentData.Carrier?.TrackingNumber;
                         orderHeader.OrderStatus = SD.Status_Shipped;
-                        orderHeader.ShippingDate = shipmentData.ShippedAt;
+                        if (!string.IsNullOrEmpty(shipmentData.ShippedAt) && DateTime.TryParse(shipmentData.ShippedAt, out var shippedDate))
+                        {
+                            orderHeader.ShippingDate = shippedDate;
+                        }
 
                         _unitOfWork.OrderHeader.Update(orderHeader);
                         _unitOfWork.Save();

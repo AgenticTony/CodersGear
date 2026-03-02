@@ -3,6 +3,7 @@ using System.Security.Claims;
 using CodersGear.DataAccess.Repository.IRepository;
 using CodersGear.Models;
 using CodersGear.Models.ViewModels;
+using CodersGear.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,11 +15,13 @@ namespace CodersGear.Areas.Customer.Controllers
     {
         private readonly ILogger<HomeController> _logger;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IPrintifyProductSyncService _printifySyncService;
 
-        public HomeController(ILogger<HomeController> logger, IUnitOfWork unitOfWork)
+        public HomeController(ILogger<HomeController> logger, IUnitOfWork unitOfWork, IPrintifyProductSyncService printifySyncService)
         {
             _logger = logger;
             _unitOfWork = unitOfWork;
+            _printifySyncService = printifySyncService;
         }
 
         public IActionResult Index()
@@ -184,6 +187,27 @@ namespace CodersGear.Areas.Customer.Controllers
         public IActionResult Error()
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        }
+
+        // Debug action to trigger Printify sync
+        public async Task<string> SyncPrintify()
+        {
+            try
+            {
+                _logger.LogInformation("=== MANUAL PRINTIFY SYNC TRIGGERED ===");
+                await _printifySyncService.SyncProductsAsync();
+
+                var printifyProducts = _unitOfWork.Product.GetAll(p => p.IsPrintifyProduct == true).ToList();
+                return $"SUCCESS! Synced {printifyProducts.Count} Printify products. " +
+                       $"Check server console for details. Products: {string.Join(", ", printifyProducts.Select(p => p.ProductName))}";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"=== PRINTIFY SYNC FAILED ===");
+                _logger.LogError($"Error: {ex.GetType().Name} - {ex.Message}");
+                _logger.LogError($"Stack Trace: {ex.StackTrace}");
+                return $"ERROR: {ex.GetType().Name} - {ex.Message}\n\n{ex.StackTrace}";
+            }
         }
     }
 }
