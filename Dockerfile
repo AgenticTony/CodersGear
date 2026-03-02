@@ -7,7 +7,8 @@ COPY CodersGear.DataAccess/CodersGear.DataAccess.csproj ./CodersGear.DataAccess/
 COPY CodersGear.Models/CodersGear.Models.csproj ./CodersGear.Models/
 COPY CodersGear.Utility/CodersGear.Utility.csproj ./CodersGear.Utility/
 
-RUN dotnet restore CodersGear/CodersGear.csproj
+# Restore with preview packages enabled
+RUN dotnet restore CodersGear/CodersGear.csproj --verbosity normal
 
 # Copy everything else and build
 COPY . .
