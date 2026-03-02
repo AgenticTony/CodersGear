@@ -69,6 +69,22 @@ builder.Services.AddAntiforgery(options =>
 
 var app = builder.Build();
 
+// Apply database migrations automatically
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    try
+    {
+        db.Database.Migrate();
+        Console.WriteLine("Database migration completed successfully.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Database migration failed: {ex.Message}");
+        // Don't throw - let the app start anyway for debugging
+    }
+}
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
@@ -79,7 +95,18 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-StripeConfiguration.ApiKey = builder.Configuration.GetSection("Stripe:SecretKey").Get<string>();
+
+// Configure Stripe - handle missing key gracefully
+var stripeKey = builder.Configuration.GetSection("Stripe:SecretKey").Get<string>();
+if (!string.IsNullOrEmpty(stripeKey))
+{
+    StripeConfiguration.ApiKey = stripeKey;
+}
+else
+{
+    Console.WriteLine("Warning: Stripe:SecretKey not configured");
+}
+
 app.UseRouting();
 
 app.UseAuthentication();
