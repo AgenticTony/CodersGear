@@ -16,17 +16,20 @@ namespace CodersGear.Controllers
         private readonly PrintifySettings _printifySettings;
         private readonly ILogger<PrintifyWebhookController> _logger;
         private readonly IWebhookSignatureVerifier _signatureVerifier;
+        private readonly IPrintifyService _printifyService;
 
         public PrintifyWebhookController(
             IUnitOfWork unitOfWork,
             IOptions<PrintifySettings> printifySettings,
             ILogger<PrintifyWebhookController> logger,
-            IWebhookSignatureVerifier signatureVerifier)
+            IWebhookSignatureVerifier signatureVerifier,
+            IPrintifyService printifyService)
         {
             _unitOfWork = unitOfWork;
             _printifySettings = printifySettings.Value;
             _logger = logger;
             _signatureVerifier = signatureVerifier;
+            _printifyService = printifyService;
         }
 
         [HttpPost]
@@ -245,6 +248,27 @@ namespace CodersGear.Controllers
                     {
                         // Product is being published - mark as in progress
                         _logger.LogInformation($"Product {product.ProductId} (Printify ID: {webhookEvent.Resource.Id}) publish started. Action: {publishData.Action}");
+
+                        // Generate the external handle for this product
+                        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+                        var externalHandle = $"/Customer/Home/Details?productId={product.ProductId}";
+
+                        // Notify Printify that publishing succeeded
+                        var success = await _printifyService.NotifyPublishingSucceededAsync(
+                            publishData.ShopId.ToString(),
+                            webhookEvent.Resource.Id,
+                            product.ProductId.ToString(),
+                            externalHandle
+                        );
+
+                        if (success)
+                        {
+                            _logger.LogInformation($"Notified Printify of successful publish for product {webhookEvent.Resource.Id}");
+                        }
+                        else
+                        {
+                            _logger.LogWarning($"Failed to notify Printify of successful publish for product {webhookEvent.Resource.Id}");
+                        }
                     }
                     else
                     {
