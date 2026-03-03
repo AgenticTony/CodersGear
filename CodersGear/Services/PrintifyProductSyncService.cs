@@ -136,8 +136,8 @@ namespace CodersGear.Services
                     // Update category (in case it changed)
                     existingProduct.CategoryId = categoryId;
 
-                    // Update visibility - product is visible if it's not locked
-                    existingProduct.Visible = !printifyProduct.IsLocked;
+                    // Always keep Printify products visible (locked status just means publishing in progress)
+                    existingProduct.Visible = true;
 
                     // Update prices from the first enabled variant
                     var firstVariant = printifyProduct.Variants.FirstOrDefault(v => v.IsEnabled);
@@ -174,7 +174,7 @@ namespace CodersGear.Services
                         LastSyncedAt = DateTime.UtcNow,
                         CategoryId = categoryId,
                         UPC = $"PRINTIFY-{printifyProduct.Id}",
-                        Visible = !printifyProduct.IsLocked  // Product is visible if not locked
+                        Visible = true  // Always visible for Printify products
                     };
 
                     if (firstVariant != null)
