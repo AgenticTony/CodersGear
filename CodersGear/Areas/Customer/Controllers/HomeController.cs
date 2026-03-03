@@ -26,8 +26,9 @@ namespace CodersGear.Areas.Customer.Controllers
 
         public IActionResult Index()
         {
-            // Get all products with categories
-            IEnumerable<Product> products = _unitOfWork.Product.GetAll(includeProperties: "Category");
+            // Get all visible products with categories
+            IEnumerable<Product> products = _unitOfWork.Product.GetAll(includeProperties: "Category")
+                .Where(p => p.Visible);
 
             // Group by category
             List<CategoryProductViewModel> categoryGroups = products
@@ -52,12 +53,12 @@ namespace CodersGear.Areas.Customer.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Get all products with categories
+            // Get product (must be visible)
             ShoppingCart cart = new()
             {
                 Count = 1,
                 ProductId = productId.Value,
-                Product = _unitOfWork.Product.Get(u => u.ProductId == productId.Value, includeProperties: "Category")
+                Product = _unitOfWork.Product.Get(u => u.ProductId == productId.Value && u.Visible, includeProperties: "Category")
             };
 
             if (cart.Product == null)
@@ -153,28 +154,28 @@ namespace CodersGear.Areas.Customer.Controllers
         public IActionResult Hoddies()
         {
             IEnumerable<Product> products = _unitOfWork.Product.GetAll(includeProperties: "Category")
-                .Where(p => p.CategoryId == 2);
+                .Where(p => p.CategoryId == 2 && p.Visible);
             return View(products);
         }
 
         public IActionResult TShirts()
         {
             IEnumerable<Product> products = _unitOfWork.Product.GetAll(includeProperties: "Category")
-                .Where(p => p.CategoryId == 1);
+                .Where(p => p.CategoryId == 1 && p.Visible);
             return View(products);
         }
 
         public IActionResult Mugs()
         {
             IEnumerable<Product> products = _unitOfWork.Product.GetAll(includeProperties: "Category")
-                .Where(p => p.CategoryId == 3);
+                .Where(p => p.CategoryId == 3 && p.Visible);
             return View(products);
         }
 
         public IActionResult Accessories()
         {
             IEnumerable<Product> products = _unitOfWork.Product.GetAll(includeProperties: "Category")
-                .Where(p => p.CategoryId == 4);
+                .Where(p => p.CategoryId == 4 && p.Visible);
             return View(products);
         }
 

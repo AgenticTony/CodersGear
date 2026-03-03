@@ -35,7 +35,15 @@ namespace CodersGear.DataAccess.Repository
                     objFromDb.ImageUrl = obj.ImageUrl;
                 }
 
-
+                // Update Printify-specific fields
+                objFromDb.AdditionalImages = obj.AdditionalImages;
+                objFromDb.PrintifyOptionsData = obj.PrintifyOptionsData;
+                objFromDb.PrintifyVariantData = obj.PrintifyVariantData;
+                objFromDb.IsPrintifyProduct = obj.IsPrintifyProduct;
+                objFromDb.PrintifyProductId = obj.PrintifyProductId;
+                objFromDb.PrintifyShopId = obj.PrintifyShopId;
+                objFromDb.LastSyncedAt = obj.LastSyncedAt;
+                objFromDb.Visible = obj.Visible;
             }
         }
     }

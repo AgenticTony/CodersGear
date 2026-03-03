@@ -15,15 +15,18 @@ namespace CodersGear.Controllers
         private readonly IUnitOfWork _unitOfWork;
         private readonly PrintifySettings _printifySettings;
         private readonly ILogger<PrintifyWebhookController> _logger;
+        private readonly IWebhookSignatureVerifier _signatureVerifier;
 
         public PrintifyWebhookController(
             IUnitOfWork unitOfWork,
             IOptions<PrintifySettings> printifySettings,
-            ILogger<PrintifyWebhookController> logger)
+            ILogger<PrintifyWebhookController> logger,
+            IWebhookSignatureVerifier signatureVerifier)
         {
             _unitOfWork = unitOfWork;
             _printifySettings = printifySettings.Value;
             _logger = logger;
+            _signatureVerifier = signatureVerifier;
         }
 
         [HttpPost]
@@ -36,16 +39,16 @@ namespace CodersGear.Controllers
                 // Verify webhook signature if secret is configured
                 if (!string.IsNullOrEmpty(_printifySettings.WebhookSecret))
                 {
-                    // Printify sends the signature in the Authorization header
-                    if (!Request.Headers.TryGetValue("Authorization", out var authHeader))
+                    // Printify sends the signature in the X-Pfy-Signature header
+                    if (!Request.Headers.TryGetValue("X-Pfy-Signature", out var signatureHeader))
                     {
-                        _logger.LogWarning("Printify webhook missing Authorization header");
+                        _logger.LogWarning("Printify webhook missing X-Pfy-Signature header");
                         return Unauthorized();
                     }
 
-                    if (authHeader != _printifySettings.WebhookSecret)
+                    if (!_signatureVerifier.VerifyPrintifySignature(json, signatureHeader!, _printifySettings.WebhookSecret))
                     {
-                        _logger.LogWarning("Printify webhook authorization failed");
+                        _logger.LogWarning("Printify webhook signature verification failed");
                         return Unauthorized();
                     }
                 }
@@ -71,6 +74,18 @@ namespace CodersGear.Controllers
 
                     case "order:shipment:created":
                         await HandleShipmentCreated(webhookEvent);
+                        break;
+
+                    case "product:publishing_succeeded":
+                        await HandleProductPublishingSucceeded(webhookEvent);
+                        break;
+
+                    case "product:publishing_failed":
+                        await HandleProductPublishingFailed(webhookEvent);
+                        break;
+
+                    case "product:unpublished":
+                        await HandleProductUnpublished(webhookEvent);
                         break;
 
                     default:
@@ -177,6 +192,59 @@ namespace CodersGear.Controllers
                 PrintifyConstants.ORDER_STATUS_HAS_ISSUES => SD.Status_InProcess,
                 _ => SD.Status_Pending
             };
+        }
+
+        private async Task HandleProductPublishingSucceeded(PrintifyWebhookEvent webhookEvent)
+        {
+            _logger.LogInformation($"Product publishing succeeded: {webhookEvent.Resource?.Id}");
+
+            // Find the local product by Printify Product ID
+            var product = _unitOfWork.Product.Get(p => p.PrintifyProductId == webhookEvent.Resource.Id);
+
+            if (product != null)
+            {
+                product.IsPrintifyProduct = true;
+                product.Visible = true; // Make the product visible
+                _unitOfWork.Product.Update(product);
+                _unitOfWork.Save();
+                _logger.LogInformation($"Product {product.ProductId} (Printify ID: {webhookEvent.Resource.Id}) is now published and visible");
+            }
+            else
+            {
+                _logger.LogWarning($"Product not found for Printify ID: {webhookEvent.Resource.Id}. Consider syncing this product.");
+            }
+        }
+
+        private async Task HandleProductPublishingFailed(PrintifyWebhookEvent webhookEvent)
+        {
+            _logger.LogWarning($"Product publishing failed: {webhookEvent.Resource?.Id}");
+
+            // Find the local product by Printify Product ID
+            var product = _unitOfWork.Product.Get(p => p.PrintifyProductId == webhookEvent.Resource.Id);
+
+            if (product != null)
+            {
+                product.Visible = false; // Hide the product since publishing failed
+                _unitOfWork.Product.Update(product);
+                _unitOfWork.Save();
+                _logger.LogInformation($"Product {product.ProductId} has been hidden due to publishing failure.");
+            }
+        }
+
+        private async Task HandleProductUnpublished(PrintifyWebhookEvent webhookEvent)
+        {
+            _logger.LogInformation($"Product unpublished: {webhookEvent.Resource?.Id}");
+
+            // Find the local product by Printify Product ID
+            var product = _unitOfWork.Product.Get(p => p.PrintifyProductId == webhookEvent.Resource.Id);
+
+            if (product != null)
+            {
+                product.Visible = false; // Hide the unpublished product
+                _unitOfWork.Product.Update(product);
+                _unitOfWork.Save();
+                _logger.LogInformation($"Product {product.ProductId} (Printify ID: {webhookEvent.Resource.Id}) has been unpublished and hidden.");
+            }
         }
     }
 }

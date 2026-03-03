@@ -107,32 +107,36 @@ else
                 @foreach (var product in categoryGroup.Products)
                 {
                     <div class="col-lg-3 col-sm-6">
-                        <div class="row p-2">
-                            <a asp-action="Details" asp-route-productId="@product.ProductId" class="text-decoration-none product-card-link">
-                                <div class="card mb-3 h-100">
-                                    <h3 class="card-header">@product.ProductName</h3>
-                                    <img src="@product.ImageUrl" class="card-img-top rounded-top"/>
-                                    <div class="card-body">
-                                        @{
-                                            var description = product.Description ?? "";
-                                            var maxLength = 100;
-                                            if (description.Length > maxLength)
-                                            {
-                                                description = description.Substring(0, maxLength) + "...";
-                                            }
+                        <a asp-action="Details" asp-route-productId="@product.ProductId" class="text-decoration-none product-card-link d-block">
+                            <div class="card mb-3 h-100 border-0 shadow-sm">
+                                <img src="@product.ImageUrl" class="card-img-top rounded-top" style="object-fit: cover; width: 100%; height: 250px;"/>
+                                <div class="card-body">
+                                    @{
+                                        var description = product.Description ?? "";
+                                        var maxLength = 100;
+                                        if (description.Length > maxLength)
+                                        {
+                                            description = description.Substring(0, maxLength) + "...";
                                         }
-                                        <p class="card-text text-muted">@Html.Raw(description)</p>
+                                    }
+                                    <p class="card-text text-muted small mb-2">@Html.Raw(description)</p>
+                                </div>
+                                <div class="card-body mt-auto">
+                                    <div class="mb-2">
+                                        <span class="h5 text-primary fw-bold">$@product.Price.ToString("F2")</span>
+                                        @if (product.ListPrice > product.Price)
+                                        {
+                                            <span class="text-decoration-line-through text-muted ms-2 small">$@product.ListPrice.ToString("F2")</span>
+                                        }
                                     </div>
-                                    <div class="card-body mt-auto">
-                                        <div class="d-grid gap-2">
-                                            <span class="btn btn-primary">See Details</span>
-                                            <a asp-action="BuyNow" asp-route-productId="@product.ProductId" class="btn btn-success"
-                                               onclick="event.stopPropagation()">Buy Now</a>
-                                        </div>
+                                    <div class="d-grid gap-2">
+                                        <span class="btn btn-primary btn-sm">See Details</span>
+                                        <a asp-action="BuyNow" asp-route-productId="@product.ProductId" class="btn btn-success btn-sm"
+                                           onclick="event.stopPropagation()">Buy Now</a>
                                     </div>
                                 </div>
-                            </a>
-                        </div>
+                            </div>
+                        </a>
                     </div>
                 }
             </div>

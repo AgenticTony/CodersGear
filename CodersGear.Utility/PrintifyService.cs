@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 
 namespace CodersGear.Utility
 {
@@ -21,11 +22,13 @@ namespace CodersGear.Utility
         private readonly HttpClient _httpClient;
         private readonly PrintifySettings _settings;
         private readonly JsonSerializerOptions _jsonOptions;
+        private readonly ILogger<PrintifyService> _logger;
 
-        public PrintifyService(HttpClient httpClient, IOptions<PrintifySettings> settings)
+        public PrintifyService(HttpClient httpClient, IOptions<PrintifySettings> settings, ILogger<PrintifyService> logger)
         {
             _httpClient = httpClient;
             _settings = settings.Value;
+            _logger = logger;
             _jsonOptions = new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true,
@@ -87,6 +90,21 @@ namespace CodersGear.Utility
             }
 
             var content = await response.Content.ReadAsStringAsync();
+
+            // Log raw response for debugging
+            _logger.LogInformation($"Printify API Response for product {productId}: {content.Substring(0, Math.Min(500, content.Length))}...");
+
+            // Printify API wraps single product response: {"product":{...}}
+            using var jsonDoc = JsonDocument.Parse(content);
+            if (jsonDoc.RootElement.TryGetProperty("product", out var productElement))
+            {
+                var product = JsonSerializer.Deserialize<PrintifyProduct>(productElement.GetRawText(), _jsonOptions);
+                _logger.LogInformation($"Deserialized product: Title={product?.Title}, Images={product?.Images?.Count ?? 0}, Options={product?.Options?.Count ?? 0}, Variants={product?.Variants?.Count ?? 0}");
+                return product;
+            }
+
+            // Fallback: try deserializing directly (in case API changes)
+            _logger.LogWarning("API response does not contain 'product' wrapper, trying direct deserialization");
             return JsonSerializer.Deserialize<PrintifyProduct>(content, _jsonOptions);
         }
 
@@ -133,11 +151,7 @@ namespace CodersGear.Utility
             var webhookRequest = new
             {
                 url = webhookUrl,
-                events = events,
-                headers = new
-                {
-                    Authorization = _settings.WebhookSecret
-                }
+                events = events
             };
 
             var json = JsonSerializer.Serialize(webhookRequest, _jsonOptions);

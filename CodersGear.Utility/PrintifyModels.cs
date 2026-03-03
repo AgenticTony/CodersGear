@@ -32,6 +32,9 @@ namespace CodersGear.Utility
         [JsonPropertyName("tags")]
         public List<string> Tags { get; set; } = new();
 
+        [JsonPropertyName("options")]
+        public List<PrintifyProductOption> Options { get; set; } = new();
+
         [JsonPropertyName("variants")]
         public List<PrintifyVariant> Variants { get; set; } = new();
 
@@ -55,6 +58,27 @@ namespace CodersGear.Utility
 
         [JsonPropertyName("updated_at")]
         public string UpdatedAt { get; set; } = string.Empty;
+    }
+
+    public class PrintifyProductOption
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("type")]
+        public string Type { get; set; } = string.Empty;
+
+        [JsonPropertyName("values")]
+        public List<PrintifyOptionValue> Values { get; set; } = new();
+    }
+
+    public class PrintifyOptionValue
+    {
+        [JsonPropertyName("id")]
+        public int Id { get; set; }
+
+        [JsonPropertyName("title")]
+        public string Title { get; set; } = string.Empty;
     }
 
     public class PrintifyVariant
@@ -308,6 +332,24 @@ namespace CodersGear.Utility
 
         [JsonPropertyName("tracking_url")]
         public string TrackingUrl { get; set; } = string.Empty;
+    }
+
+    public class PrintifyProductPublishingData
+    {
+        [JsonPropertyName("shop_id")]
+        public int ShopId { get; set; }
+
+        [JsonPropertyName("external")]
+        public PrintifyProductPublishingExternal External { get; set; } = null!;
+    }
+
+    public class PrintifyProductPublishingExternal
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = string.Empty;
+
+        [JsonPropertyName("handle")]
+        public string Handle { get; set; } = string.Empty;
     }
     #endregion
 }

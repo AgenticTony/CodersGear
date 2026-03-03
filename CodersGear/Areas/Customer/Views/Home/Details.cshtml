@@ -56,15 +56,26 @@
 
             <!-- Thumbnail Gallery -->
             <div class="row g-2 mt-2">
-                <div class="col-3">
-                    <div class="card">
-                        <img src="@(Model.Product?.ImageUrl ?? "/images/product/placeholder.png")"
-                             class="img-fluid rounded cursor-pointer"
-                             alt="Thumbnail"
-                             onclick="changeImage('@(Model.Product?.ImageUrl ?? "/images/product/placeholder.png")')">
-                    </div>
-                </div>
-                <!-- More thumbnails can be added here -->
+                @if (!string.IsNullOrEmpty(Model.Product?.AdditionalImages))
+                {
+                    var allImages = System.Text.Json.JsonSerializer.Deserialize<List<string>>(Model.Product.AdditionalImages);
+                    if (allImages != null)
+                    {
+                        int imageIndex = 0;
+                        @foreach (var img in allImages)
+                        {
+                            <div class="col-3">
+                                <div class="card">
+                                    <img src="@img"
+                                         class="img-fluid rounded cursor-pointer @(imageIndex == 0 ? "thumbnail-active" : "")"
+                                         alt="Thumbnail"
+                                         onclick="changeImage('@img', this)">
+                                </div>
+                            </div>
+                            imageIndex++;
+                        }
+                    }
+                }
             </div>
 
             <!-- Stock Status Alert -->
@@ -99,8 +110,8 @@
                 <div class="card mb-4 border-0 bg-light">
                     <div class="card-body">
                         <div class="d-flex align-items-baseline gap-2">
-                            <span class="text-info text-decoration-line-through">@Model.Product?.ListPrice.ToString("C")</span>
-                            <span class="display-6 fw-bold text-primary">@Model.Product?.Price.ToString("C")</span>
+                            <span class="text-info text-decoration-line-through">$@Model.Product?.ListPrice.ToString("F2")</span>
+                            <span class="display-6 fw-bold text-primary">$@Model.Product?.Price.ToString("F2")</span>
                             @{
                                 decimal savings = 0m;
                                 if (Model.Product != null)
@@ -108,11 +119,62 @@
                                     savings = Model.Product.ListPrice - Model.Product.Price;
                                 }
                             }
-                            <span class="badge bg-danger">Save @savings.ToString("C")</span>
+                            <span class="badge bg-danger">Save $@savings.ToString("F2")</span>
                         </div>
                         <p class="text-success mb-0"><i class="bi bi-truck"></i> Free shipping on orders over $50</p>
                     </div>
                 </div>
+
+                <!-- Variant Selectors (Size, Color) -->
+                @if (!string.IsNullOrEmpty(Model.Product?.PrintifyOptionsData) && Model.Product.IsPrintifyProduct)
+                {
+                    <div class="card mb-4 border-0">
+                        <div class="card-body">
+                            @{
+                                var options = System.Text.Json.JsonSerializer.Deserialize<List<CodersGear.Utility.PrintifyProductOption>>(Model.Product.PrintifyOptionsData);
+                                var allVariants = System.Text.Json.JsonSerializer.Deserialize<List<CodersGear.Utility.PrintifyVariant>>(Model.Product.PrintifyVariantData);
+                                // Only use enabled variants
+                                var variants = allVariants?.Where(v => v.IsEnabled).ToList() ?? new List<CodersGear.Utility.PrintifyVariant>();
+
+                                // Build a set of available option IDs from enabled variants
+                                var availableOptionIds = new HashSet<int>();
+                                foreach (var variant in variants)
+                                {
+                                    foreach (var optionId in variant.Options)
+                                    {
+                                        availableOptionIds.Add(optionId);
+                                    }
+                                }
+                            }
+                            @if (options != null && options.Any())
+                            {
+                                @foreach (var option in options)
+                                {
+                                    // Only show options that have at least one available value
+                                    var availableValues = option.Values.Where(v => availableOptionIds.Contains(v.Id)).ToList();
+                                    if (availableValues.Any())
+                                    {
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">@option.Name:</label>
+                                            <select class="form-select variant-select" onchange="@("updateVariant()")">
+                                                @foreach (var value in availableValues)
+                                                {
+                                                    <option value="@value.Id">@value.Title</option>
+                                                }
+                                            </select>
+                                        </div>
+                                    }
+                                }
+                            }
+                            @if (variants != null && variants.Any())
+                            {
+                                <input type="hidden" id="variantId" name="variantId" value="@variants.FirstOrDefault(v => v.IsDefault)?.Id ?? variants.FirstOrDefault()?.Id" />
+                                <input type="hidden" id="variantPrice" name="variantPrice" value="@(variants.FirstOrDefault(v => v.IsDefault)?.Price ?? variants.FirstOrDefault()?.Price)" />
+                                <small class="text-muted" id="variantInfo">Selected: @(variants.FirstOrDefault(v => v.IsDefault)?.Title ?? variants.FirstOrDefault()?.Title)</small>
+                            }
+                        </div>
+                    </div>
+                }
 
                 <!-- Description -->
                 <div class="card mb-4 border-0">
@@ -231,18 +293,18 @@
                                 <tbody>
                                     <tr>
                                         <td>1-50 items</td>
-                                        <td class="text-end">@Model.Product?.Price.ToString("C")</td>
+                                        <td class="text-end">$@Model.Product?.Price.ToString("F2")</td>
                                         <td class="text-end">-</td>
                                     </tr>
                                     <tr>
                                         <td>50-100 items</td>
-                                        <td class="text-end text-success fw-bold">@Model.Product?.Price50.ToString("C")</td>
-                                        <td class="text-end text-success">@savings50.ToString("C")</td>
+                                        <td class="text-end text-success fw-bold">$@Model.Product?.Price50.ToString("F2")</td>
+                                        <td class="text-end text-success">$@savings50.ToString("F2")</td>
                                     </tr>
                                     <tr>
                                         <td>100+ items</td>
-                                        <td class="text-end text-success fw-bold">@Model.Product?.Price100.ToString("C")</td>
-                                        <td class="text-end text-success">@savings100.ToString("C")</td>
+                                        <td class="text-end text-success fw-bold">$@Model.Product?.Price100.ToString("F2")</td>
+                                        <td class="text-end text-success">$@savings100.ToString("F2")</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -283,9 +345,38 @@
 </div>
 
 @section Scripts {
+    <style>
+        .cursor-pointer {
+            cursor: pointer;
+        }
+        .thumbnail-active {
+            border: 2px solid #0d6efd !important;
+        }
+        .card img {
+            transition: opacity 0.2s;
+        }
+        .card img:hover {
+            opacity: 0.8;
+        }
+    </style>
     <script>
-        function changeImage(src) {
+        // Variant data stored as JavaScript object
+        const allVariants = @Html.Raw(Model.Product?.PrintifyVariantData ?? "[]");
+        // Only use enabled variants for matching
+        const variants = allVariants.filter(v => v.is_enabled);
+
+        function changeImage(src, element) {
             document.getElementById('mainProductImage').src = src;
+
+            // Remove active class from all thumbnails
+            document.querySelectorAll('.card img').forEach(img => {
+                img.classList.remove('thumbnail-active');
+            });
+
+            // Add active class to clicked thumbnail
+            if (element) {
+                element.classList.add('thumbnail-active');
+            }
         }
 
         function increaseQty() {
@@ -299,5 +390,49 @@
                 input.value = parseInt(input.value) - 1;
             }
         }
+
+        function updateVariant() {
+            // Get all variant select elements dynamically
+            const selectElements = document.querySelectorAll('.variant-select');
+
+            // Collect selected option IDs
+            const selectedOptions = [];
+            selectElements.forEach(select => {
+                const value = parseInt(select.value);
+                if (!isNaN(value)) {
+                    selectedOptions.push(value);
+                }
+            });
+
+            // Find matching variant
+            const matchingVariant = variants.find(v => {
+                // Skip disabled variants
+                if (!v.is_enabled) return false;
+
+                // Must have same number of options
+                if (v.options.length !== selectedOptions.length) return false;
+
+                // Check if ALL variant options are in selectedOptions (order doesn't matter)
+                return v.options.every(optId => selectedOptions.includes(optId));
+            });
+
+            if (matchingVariant) {
+                document.getElementById('variantId').value = matchingVariant.id;
+                document.getElementById('variantPrice').value = matchingVariant.price;
+                document.getElementById('variantInfo').textContent = 'Selected: ' + matchingVariant.title;
+
+                // Update price display
+                const priceInDollars = matchingVariant.price / 100;
+                document.querySelector('.display-6.text-primary').textContent = '$' + priceInDollars.toFixed(2);
+            } else {
+                // No matching variant found
+                document.getElementById('variantInfo').textContent = 'Selected combination not available';
+            }
+        }
+
+        // Initialize variant selection on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateVariant();
+        });
     </script>
 }

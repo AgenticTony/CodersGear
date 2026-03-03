@@ -28,6 +28,9 @@ builder.Services.AddHttpClient<IPrintifyService, PrintifyService>();
 builder.Services.AddScoped<IPrintifyProductSyncService, PrintifyProductSyncService>();
 builder.Services.AddScoped<IPrintifyOrderService, PrintifyOrderService>();
 
+// Register webhook signature verifier for Printify HMAC-SHA256 validation
+builder.Services.AddScoped<IWebhookSignatureVerifier, WebhookSignatureVerifier>();
+
 // Register Printify background sync service
 builder.Services.AddHostedService<PrintifyBackgroundSyncService>();
 

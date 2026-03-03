@@ -4,6 +4,7 @@ using CodersGear.DataAccess.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CodersGear.DataAccess.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260303095616_AdditionalImagesfield")]
+    partial class AdditionalImagesfield
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -318,9 +321,6 @@ namespace CodersGear.DataAccess.Migrations
                     b.Property<decimal>("Price50")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("PrintifyOptionsData")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("PrintifyProductId")
                         .HasColumnType("nvarchar(max)");
 
@@ -337,9 +337,6 @@ namespace CodersGear.DataAccess.Migrations
                     b.Property<string>("UPC")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("Visible")
-                        .HasColumnType("bit");
 
                     b.HasKey("ProductId");
 
@@ -360,8 +357,7 @@ namespace CodersGear.DataAccess.Migrations
                             Price100 = 18.99m,
                             Price50 = 21.99m,
                             ProductName = "Coder's Gear T-shirt",
-                            UPC = "123456789012",
-                            Visible = true
+                            UPC = "123456789012"
                         },
                         new
                         {
@@ -375,8 +371,7 @@ namespace CodersGear.DataAccess.Migrations
                             Price100 = 32.99m,
                             Price50 = 36.99m,
                             ProductName = "Coder's Gear Hoodie",
-                            UPC = "123456789013",
-                            Visible = true
+                            UPC = "123456789013"
                         },
                         new
                         {
@@ -390,8 +385,7 @@ namespace CodersGear.DataAccess.Migrations
                             Price100 = 9.99m,
                             Price50 = 12.99m,
                             ProductName = "Coder's Gear Mug",
-                            UPC = "123456789014",
-                            Visible = true
+                            UPC = "123456789014"
                         },
                         new
                         {
@@ -405,8 +399,7 @@ namespace CodersGear.DataAccess.Migrations
                             Price100 = 19.99m,
                             Price50 = 22.99m,
                             ProductName = "Coder's Gear Laptop Sleeve",
-                            UPC = "123456789015",
-                            Visible = true
+                            UPC = "123456789015"
                         });
                 });
 

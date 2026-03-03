@@ -44,12 +44,21 @@ namespace CodersGear.Models
         [DisplayName("Image URL")]
         public string? ImageUrl { get; set; }
 
+        // Store additional images as JSON array for Printify products
+        public string? AdditionalImages { get; set; }
+
+        // Store product options (Size, Color, etc.) as JSON for Printify products
+        public string? PrintifyOptionsData { get; set; }
+
         // Printify Integration Fields
         public bool IsPrintifyProduct { get; set; } = false;
         public string? PrintifyProductId { get; set; }
         public string? PrintifyShopId { get; set; }
         public string? PrintifyVariantData { get; set; }  // JSON string containing variant info
         public DateTime? LastSyncedAt { get; set; }
+
+        // Visibility control (used for Printify products that have been unpublished)
+        public bool Visible { get; set; } = true;
 
     }
 }
