@@ -392,6 +392,63 @@ namespace CodersGear.Areas.Admin.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        /// <summary>
+        /// Manually notify Printify that all products are published successfully
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> NotifyAllPublished()
+        {
+            try
+            {
+                var shopId = _configuration["Printify:ShopId"];
+                if (string.IsNullOrEmpty(shopId))
+                {
+                    TempData["error"] = "Printify Shop ID is not configured.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                var products = _unitOfWork.Product.GetAll()
+                    .Where(p => p.IsPrintifyProduct && !string.IsNullOrEmpty(p.PrintifyProductId))
+                    .ToList();
+
+                var baseUrl = $"{Request.Scheme}://{Request.Host}";
+                var successCount = 0;
+                var failCount = 0;
+
+                foreach (var product in products)
+                {
+                    var externalHandle = $"/Customer/Home/Details?productId={product.ProductId}";
+
+                    var success = await _printifyService.NotifyPublishingSucceededAsync(
+                        shopId,
+                        product.PrintifyProductId!,
+                        product.ProductId.ToString(),
+                        externalHandle
+                    );
+
+                    if (success)
+                    {
+                        successCount++;
+                        _logger.LogInformation($"Notified Printify: {product.ProductName} ({product.PrintifyProductId})");
+                    }
+                    else
+                    {
+                        failCount++;
+                        _logger.LogWarning($"Failed to notify Printify: {product.ProductName} ({product.PrintifyProductId})");
+                    }
+                }
+
+                TempData["success"] = $"Notified Printify for {successCount} products. Failed: {failCount}";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error notifying Printify");
+                TempData["error"] = $"Error: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
         private string GetWebhookUrl()
         {
             var baseUrl = _configuration["Printify:WebhookBaseUrl"]
