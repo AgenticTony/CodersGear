@@ -1,0 +1,222 @@
+@model CodersGear.Areas.Admin.Controllers.WebhookIndexViewModel
+
+@{
+    ViewData["Title"] = "Printify Webhook Management";
+}
+
+<div class="container-fluid px-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mt-4">
+                <i class="bi bi-link-45deg"></i> Printify Webhook Management
+            </h2>
+            <p class="text-muted">Manage webhooks to receive real-time notifications from Printify</p>
+        </div>
+    </div>
+
+    <!-- Configuration Info -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-gear"></i> Configuration
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Shop ID</dt>
+                        <dd class="col-sm-8">
+                            @if (string.IsNullOrEmpty(Model.ShopId))
+                            {
+                                <span class="text-danger">Not configured</span>
+                            }
+                            else
+                            {
+                                <code>@Model.ShopId</code>
+                            }
+                        </dd>
+
+                        <dt class="col-sm-4">Webhook URL</dt>
+                        <dd class="col-sm-8">
+                            <code>@Model.WebhookUrl</code>
+                        </dd>
+
+                        <dt class="col-sm-4">Registered Webhooks</dt>
+                        <dd class="col-sm-8">
+                            <span class="badge bg-primary">@Model.Webhooks.Count</span>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-lightning"></i> Quick Actions
+                </div>
+                <div class="card-body">
+                    <form asp-action="CreateAll" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-success" onclick="return confirm('Create webhooks for all recommended topics?')">
+                            <i class="bi bi-plus-circle"></i> Create All Recommended Webhooks
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create New Webhook -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-plus-lg"></i> Create New Webhook
+                </div>
+                <div class="card-body">
+                    <form asp-action="Create" method="post">
+                        @Html.AntiForgeryToken()
+                        <div class="row align-items-end">
+                            <div class="col-md-6">
+                                <label class="form-label">Topic</label>
+                                <select name="topic" class="form-select" required>
+                                    <option value="">-- Select Topic --</option>
+                                    @foreach (var topic in Model.ValidTopics)
+                                    {
+                                        <option value="@topic.Topic">@topic.Topic - @topic.Description</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Webhook URL</label>
+                                <input type="text" class="form-control" value="@Model.WebhookUrl" readonly />
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-plus-circle"></i> Create
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registered Webhooks -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-list"></i> Registered Webhooks
+                </div>
+                <div class="card-body">
+                    @if (Model.Webhooks.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Topic</th>
+                                        <th>URL</th>
+                                        <th>Created At</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var webhook in Model.Webhooks)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-info">@webhook.Topic</span>
+                                            </td>
+                                            <td>
+                                                <code class="small">@webhook.Url</code>
+                                            </td>
+                                            <td>
+                                                @webhook.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")
+                                            </td>
+                                            <td>
+                                                <form asp-action="Delete" method="post" class="d-inline">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="webhookId" value="@webhook.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-danger"
+                                                            onclick="return confirm('Are you sure you want to delete this webhook?')">
+                                                        <i class="bi bi-trash"></i> Delete
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info mb-0">
+                            <i class="bi bi-info-circle"></i> No webhooks registered yet. Click "Create All Recommended Webhooks" above or select a topic to create one manually.
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Valid Topics Reference -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-book"></i> Available Webhook Topics (Reference)
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Order Events</h6>
+                            <ul class="list-group list-group-flush mb-3">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <code>order:created</code>
+                                    <span class="text-muted">Order was created</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <code>order:updated</code>
+                                    <span class="text-muted">Order status updated</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <code>order:sent-to-production</code>
+                                    <span class="text-muted">Order sent to production</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <code>order:shipment:created</code>
+                                    <span class="text-muted">Items shipped</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <code>order:shipment:delivered</code>
+                                    <span class="text-muted">Items delivered</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Product & Shop Events</h6>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <code>product:publish:started</code>
+                                    <span class="text-muted">Publishing started</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <code>product:deleted</code>
+                                    <span class="text-muted">Product deleted</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <code>shop:disconnected</code>
+                                    <span class="text-muted">Shop disconnected</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

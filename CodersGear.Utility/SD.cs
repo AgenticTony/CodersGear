@@ -15,6 +15,7 @@ namespace CodersGear.Utility
         public const string Status_Approved = "Approved";
         public const string Status_InProcess = "InProcess";
         public const string Status_Shipped = "Shipped";
+        public const string Status_Delivered = "Delivered";
         public const string Status_Cancelled = "Cancelled";
 
         public const string PaymentStatus_Pending = "Pending";

@@ -1,15 +1,6 @@
 using Microsoft.EntityFrameworkCore.Migrations;
 
-using System;
-using System.Collections.Generic;
-using CodersGear.DataAccess.Data;
-using CodersGear.Models;
-
-using Microsoft.EntityFrameworkCore.Migrations;
-
 #nullable disable
-
-using System.IO;
 
 namespace CodersGear.DataAccess.Migrations
 {
@@ -20,53 +11,27 @@ namespace CodersGear.DataAccess.Migrations
         {
             migrationBuilder.AddColumn<string>(
                 name: "AdditionalImages",
--                table: "Products"
--                type: "List<string>()",
+                table: "Products",
+                type: "text",
                 nullable: true);
-            migrationBuilder.AddColumn<string>(
+
+            migrationBuilder.AddColumn<bool>(
+                name: "IsPrintifyProduct",
+                table: "Products",
+                type: "boolean",
+                nullable: false,
+                defaultValue: false);
+        }
+
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropColumn(
                 name: "AdditionalImages",
-                type: "List<string>()",
-                nullable: true);
+                table: "Products");
 
-            migrationBuilder.AddColumn<string>(
+            migrationBuilder.DropColumn(
                 name: "IsPrintifyProduct",
-                type: "bool",
-                nullable: false);
-
-            migrationBuilder.AddColumn<string>(
-                name: "IsPrintifyProduct",
-                type: "bool",
-                nullable: false);
-
-            migrationBuilder.AddColumn<string>(
-                name: "IsPrintifyProduct",
-                type: "bool",
-                nullable: false);
-
-            migrationBuilder.AddColumn<string>(
-                name: "IsPrintifyProduct",
-                type: "bool",
-                nullable: false);
-
-            migrationBuilder.AddColumn<string>(
-                name: "IsPrintifyProduct",
-                type: "bool",
-                nullable: false);
-
-            migrationBuilder.AddColumn<string>(
-                name: "IsPrintifyProduct",
-                type: "bool",
-                nullable: false);
-
-            migrationBuilder.AddColumn<string>(
-                name: "IsPrintifyProduct",
-                type: "bool",
-                nullable: false);
-
-            migrationBuilder.AddColumn<string>(
-                name: "IsPrintifyProduct",
-                type: "bool",
-                nullable: false);
+                table: "Products");
         }
     }
 }

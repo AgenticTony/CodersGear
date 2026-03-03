@@ -76,16 +76,16 @@ namespace CodersGear.Controllers
                         await HandleShipmentCreated(webhookEvent);
                         break;
 
-                    case "product:publishing_succeeded":
-                        await HandleProductPublishingSucceeded(webhookEvent);
+                    case "order:shipment:delivered":
+                        await HandleShipmentDelivered(webhookEvent);
                         break;
 
-                    case "product:publishing_failed":
-                        await HandleProductPublishingFailed(webhookEvent);
+                    case "product:publish:started":
+                        await HandleProductPublishStarted(webhookEvent);
                         break;
 
-                    case "product:unpublished":
-                        await HandleProductUnpublished(webhookEvent);
+                    case "product:deleted":
+                        await HandleProductDeleted(webhookEvent);
                         break;
 
                     default:
@@ -194,56 +194,82 @@ namespace CodersGear.Controllers
             };
         }
 
-        private async Task HandleProductPublishingSucceeded(PrintifyWebhookEvent webhookEvent)
+        private async Task HandleShipmentDelivered(PrintifyWebhookEvent webhookEvent)
         {
-            _logger.LogInformation($"Product publishing succeeded: {webhookEvent.Resource?.Id}");
-
-            // Find the local product by Printify Product ID
-            var product = _unitOfWork.Product.Get(p => p.PrintifyProductId == webhookEvent.Resource.Id);
-
-            if (product != null)
+            if (webhookEvent.Resource?.Data.ValueKind == JsonValueKind.Object)
             {
-                product.IsPrintifyProduct = true;
-                product.Visible = true; // Make the product visible
-                _unitOfWork.Product.Update(product);
-                _unitOfWork.Save();
-                _logger.LogInformation($"Product {product.ProductId} (Printify ID: {webhookEvent.Resource.Id}) is now published and visible");
-            }
-            else
-            {
-                _logger.LogWarning($"Product not found for Printify ID: {webhookEvent.Resource.Id}. Consider syncing this product.");
-            }
-        }
+                var deliveryData = JsonSerializer.Deserialize<PrintifyShipmentDeliveredData>(webhookEvent.Resource.Data.GetRawText());
 
-        private async Task HandleProductPublishingFailed(PrintifyWebhookEvent webhookEvent)
-        {
-            _logger.LogWarning($"Product publishing failed: {webhookEvent.Resource?.Id}");
+                if (deliveryData != null)
+                {
+                    _logger.LogInformation($"Shipment delivered for Printify order: {webhookEvent.Resource.Id}");
 
-            // Find the local product by Printify Product ID
-            var product = _unitOfWork.Product.Get(p => p.PrintifyProductId == webhookEvent.Resource.Id);
+                    // Find the local order by Printify Order ID
+                    var orderHeader = _unitOfWork.OrderHeader.Get(o => o.PrintifyOrderId == webhookEvent.Resource.Id);
 
-            if (product != null)
-            {
-                product.Visible = false; // Hide the product since publishing failed
-                _unitOfWork.Product.Update(product);
-                _unitOfWork.Save();
-                _logger.LogInformation($"Product {product.ProductId} has been hidden due to publishing failure.");
+                    if (orderHeader != null)
+                    {
+                        orderHeader.OrderStatus = SD.Status_Delivered;
+                        if (!string.IsNullOrEmpty(deliveryData.DeliveredAt) && DateTime.TryParse(deliveryData.DeliveredAt, out var deliveredDate))
+                        {
+                            // Could add a DeliveredDate property if needed
+                        }
+
+                        _unitOfWork.OrderHeader.Update(orderHeader);
+                        _unitOfWork.Save();
+
+                        _logger.LogInformation($"Local order {orderHeader.Id} marked as delivered.");
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"No local order found for Printify Order ID: {webhookEvent.Resource.Id}");
+                    }
+                }
             }
         }
 
-        private async Task HandleProductUnpublished(PrintifyWebhookEvent webhookEvent)
+        private async Task HandleProductPublishStarted(PrintifyWebhookEvent webhookEvent)
         {
-            _logger.LogInformation($"Product unpublished: {webhookEvent.Resource?.Id}");
+            _logger.LogInformation($"Product publish started: {webhookEvent.Resource?.Id}");
+
+            if (webhookEvent.Resource?.Data.ValueKind == JsonValueKind.Object)
+            {
+                var publishData = JsonSerializer.Deserialize<PrintifyPublishStartedData>(webhookEvent.Resource.Data.GetRawText());
+
+                if (publishData != null)
+                {
+                    // Find the local product by Printify Product ID
+                    var product = _unitOfWork.Product.Get(p => p.PrintifyProductId == webhookEvent.Resource.Id);
+
+                    if (product != null)
+                    {
+                        // Product is being published - mark as in progress
+                        _logger.LogInformation($"Product {product.ProductId} (Printify ID: {webhookEvent.Resource.Id}) publish started. Action: {publishData.Action}");
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"Product not found for Printify ID: {webhookEvent.Resource.Id}. Consider syncing this product.");
+                    }
+                }
+            }
+        }
+
+        private async Task HandleProductDeleted(PrintifyWebhookEvent webhookEvent)
+        {
+            _logger.LogInformation($"Product deleted: {webhookEvent.Resource?.Id}");
 
             // Find the local product by Printify Product ID
             var product = _unitOfWork.Product.Get(p => p.PrintifyProductId == webhookEvent.Resource.Id);
 
             if (product != null)
             {
-                product.Visible = false; // Hide the unpublished product
+                // Mark product as hidden since it was deleted from Printify
+                product.IsPrintifyProduct = false;
+                product.PrintifyProductId = null; // Clear the Printify ID
+                product.Visible = false;
                 _unitOfWork.Product.Update(product);
                 _unitOfWork.Save();
-                _logger.LogInformation($"Product {product.ProductId} (Printify ID: {webhookEvent.Resource.Id}) has been unpublished and hidden.");
+                _logger.LogInformation($"Product {product.ProductId} (Printify ID: {webhookEvent.Resource.Id}) has been marked as deleted and hidden.");
             }
         }
     }
