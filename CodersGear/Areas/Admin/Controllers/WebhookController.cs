@@ -257,6 +257,54 @@ namespace CodersGear.Areas.Admin.Controllers
         }
 
         /// <summary>
+        /// Debug: Show product counts
+        /// </summary>
+        [HttpGet]
+        public IActionResult ProductStats()
+        {
+            var total = _unitOfWork.Product.GetAll().Count();
+            var visible = _unitOfWork.Product.GetAll().Where(p => p.Visible).Count();
+            var printify = _unitOfWork.Product.GetAll().Where(p => p.IsPrintifyProduct).Count();
+            var withCategory = _unitOfWork.Product.GetAll().Where(p => p.CategoryId.HasValue).Count();
+
+            return Json(new
+            {
+                TotalProducts = total,
+                VisibleProducts = visible,
+                PrintifyProducts = printify,
+                WithCategory = withCategory,
+                Products = _unitOfWork.Product.GetAll().Select(p => new { p.ProductId, p.ProductName, p.Visible, p.IsPrintifyProduct, p.CategoryId }).Take(10)
+            });
+        }
+
+        /// <summary>
+        /// Fix all products to be visible
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> FixProductVisibility()
+        {
+            try
+            {
+                var connection = _dbContext.Database.GetDbConnection();
+                await connection.OpenAsync();
+
+                using var cmd = connection.CreateCommand();
+                cmd.CommandText = @"UPDATE ""Products"" SET ""Visible"" = true WHERE ""IsPrintifyProduct"" = true";
+
+                var updatedCount = await cmd.ExecuteNonQueryAsync();
+                await connection.CloseAsync();
+
+                TempData["success"] = $"Fixed visibility for {updatedCount} products.";
+            }
+            catch (Exception ex)
+            {
+                TempData["error"] = $"Error: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        /// <summary>
         /// Sync all products from Printify
         /// </summary>
         [HttpGet]
