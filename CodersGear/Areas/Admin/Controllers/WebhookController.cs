@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using CodersGear.Utility;
 using CodersGear.DataAccess.Repository.IRepository;
+using CodersGear.DataAccess.Data;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 
 namespace CodersGear.Areas.Admin.Controllers
 {
@@ -13,17 +15,20 @@ namespace CodersGear.Areas.Admin.Controllers
         private readonly ILogger<WebhookController> _logger;
         private readonly IConfiguration _configuration;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ApplicationDbContext _dbContext;
 
         public WebhookController(
             IPrintifyService printifyService,
             ILogger<WebhookController> logger,
             IConfiguration configuration,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            ApplicationDbContext dbContext)
         {
             _printifyService = printifyService;
             _logger = logger;
             _configuration = configuration;
             _unitOfWork = unitOfWork;
+            _dbContext = dbContext;
         }
 
         public async Task<IActionResult> Index()
@@ -182,6 +187,48 @@ namespace CodersGear.Areas.Admin.Controllers
             {
                 _logger.LogError(ex, "Error deleting webhook {WebhookId}", webhookId);
                 TempData["error"] = $"Error deleting webhook: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        /// <summary>
+        /// Fix missing database columns from failed migration
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> FixMigration()
+        {
+            try
+            {
+                // Check if columns exist first
+                var connection = _dbContext.Database.GetDbConnection();
+                await connection.OpenAsync();
+
+                using var cmd = connection.CreateCommand();
+
+                // Add AdditionalImages column if it doesn't exist
+                cmd.CommandText = @"
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'AdditionalImages') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""AdditionalImages"" text NULL;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'IsPrintifyProduct') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""IsPrintifyProduct"" boolean NOT NULL DEFAULT false;
+                        END IF;
+                    END $$;";
+
+                await cmd.ExecuteNonQueryAsync();
+                await connection.CloseAsync();
+
+                _logger.LogInformation("Migration fix applied successfully");
+                TempData["success"] = "Migration fix applied successfully! Missing columns have been added.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error applying migration fix");
+                TempData["error"] = $"Error applying migration fix: {ex.Message}";
             }
 
             return RedirectToAction(nameof(Index));

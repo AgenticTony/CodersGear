@@ -61,6 +61,12 @@
                             <i class="bi bi-plus-circle"></i> Create All Recommended Webhooks
                         </button>
                     </form>
+                    <form asp-action="FixMigration" method="post" class="d-inline ms-2">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-warning" onclick="return confirm('This will add missing database columns (AdditionalImages, IsPrintifyProduct). Continue?')">
+                            <i class="bi bi-wrench"></i> Fix Missing Columns
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
