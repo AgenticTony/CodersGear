@@ -353,6 +353,45 @@ namespace CodersGear.Areas.Admin.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        /// <summary>
+        /// Re-categorize all Printify products based on improved keyword matching
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> ReCategorizeProducts()
+        {
+            try
+            {
+                var connection = _dbContext.Database.GetDbConnection();
+                await connection.OpenAsync();
+
+                using var cmd = connection.CreateCommand();
+
+                // Fix T-Shirts that ended up in wrong category
+                cmd.CommandText = @"
+                    UPDATE ""Products""
+                    SET ""CategoryId"" = 1
+                    WHERE (""ProductName"" ILIKE '%t-shirt%'
+                       OR ""ProductName"" ILIKE '%tshirt%'
+                       OR ""ProductName"" ILIKE '% tee%'
+                       OR ""ProductName"" ILIKE '%shirt%'
+                       OR ""ProductName"" ILIKE '%sleeve%')
+                    AND ""CategoryId"" != 1
+                    AND ""IsPrintifyProduct"" = true";
+
+                var fixedCount = await cmd.ExecuteNonQueryAsync();
+                await connection.CloseAsync();
+
+                TempData["success"] = $"Re-categorized {fixedCount} products to T-Shirts category.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error re-categorizing products");
+                TempData["error"] = $"Error: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
         private string GetWebhookUrl()
         {
             var baseUrl = _configuration["Printify:WebhookBaseUrl"]
