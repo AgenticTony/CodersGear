@@ -67,6 +67,12 @@
                             <i class="bi bi-wrench"></i> Fix Missing Columns
                         </button>
                     </form>
+                    <form asp-action="DeleteNonPrintifyProducts" method="post" class="d-inline ms-2">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-danger" onclick="return confirm('This will permanently delete ALL non-Printify products. This cannot be undone! Continue?')">
+                            <i class="bi bi-trash"></i> Delete Non-Printify Products
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

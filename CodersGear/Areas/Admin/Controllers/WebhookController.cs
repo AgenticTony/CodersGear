@@ -252,6 +252,36 @@ namespace CodersGear.Areas.Admin.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        /// <summary>
+        /// Delete all non-Printify products from the database
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteNonPrintifyProducts()
+        {
+            try
+            {
+                var connection = _dbContext.Database.GetDbConnection();
+                await connection.OpenAsync();
+
+                using var cmd = connection.CreateCommand();
+                cmd.CommandText = @"DELETE FROM ""Products"" WHERE ""IsPrintifyProduct"" = false OR ""IsPrintifyProduct"" IS NULL";
+
+                var deletedCount = await cmd.ExecuteNonQueryAsync();
+                await connection.CloseAsync();
+
+                _logger.LogInformation("Deleted {Count} non-Printify products", deletedCount);
+                TempData["success"] = $"Deleted {deletedCount} non-Printify products.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting non-Printify products");
+                TempData["error"] = $"Error deleting non-Printify products: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
         private string GetWebhookUrl()
         {
             var baseUrl = _configuration["Printify:WebhookBaseUrl"]
