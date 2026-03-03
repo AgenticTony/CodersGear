@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using CodersGear.Utility;
 using CodersGear.DataAccess.Repository.IRepository;
 using CodersGear.DataAccess.Data;
+using CodersGear.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,19 +17,22 @@ namespace CodersGear.Areas.Admin.Controllers
         private readonly IConfiguration _configuration;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ApplicationDbContext _dbContext;
+        private readonly IPrintifyProductSyncService _syncService;
 
         public WebhookController(
             IPrintifyService printifyService,
             ILogger<WebhookController> logger,
             IConfiguration configuration,
             IUnitOfWork unitOfWork,
-            ApplicationDbContext dbContext)
+            ApplicationDbContext dbContext,
+            IPrintifyProductSyncService syncService)
         {
             _printifyService = printifyService;
             _logger = logger;
             _configuration = configuration;
             _unitOfWork = unitOfWork;
             _dbContext = dbContext;
+            _syncService = syncService;
         }
 
         public async Task<IActionResult> Index()
@@ -247,6 +251,26 @@ namespace CodersGear.Areas.Admin.Controllers
             {
                 _logger.LogError(ex, "Error applying migration fix");
                 TempData["error"] = $"Error applying migration fix: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        /// <summary>
+        /// Sync all products from Printify
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> SyncProducts()
+        {
+            try
+            {
+                await _syncService.SyncProductsAsync();
+                TempData["success"] = "Products synced successfully from Printify!";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error syncing products from Printify");
+                TempData["error"] = $"Error syncing products: {ex.Message}";
             }
 
             return RedirectToAction(nameof(Index));
