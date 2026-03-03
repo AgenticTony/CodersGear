@@ -207,7 +207,7 @@ namespace CodersGear.Areas.Admin.Controllers
 
                 using var cmd = connection.CreateCommand();
 
-                // Add AdditionalImages column if it doesn't exist
+                // Add all missing Printify-related columns
                 cmd.CommandText = @"
                     DO $$
                     BEGIN
@@ -216,6 +216,24 @@ namespace CodersGear.Areas.Admin.Controllers
                         END IF;
                         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'IsPrintifyProduct') THEN
                             ALTER TABLE ""Products"" ADD COLUMN ""IsPrintifyProduct"" boolean NOT NULL DEFAULT false;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'PrintifyProductId') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""PrintifyProductId"" text NULL;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'PrintifyShopId') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""PrintifyShopId"" text NULL;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'PrintifyOptionsData') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""PrintifyOptionsData"" text NULL;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'PrintifyVariantData') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""PrintifyVariantData"" text NULL;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'LastSyncedAt') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""LastSyncedAt"" timestamp NULL;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'Visible') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""Visible"" boolean NOT NULL DEFAULT true;
                         END IF;
                     END $$;";
 
