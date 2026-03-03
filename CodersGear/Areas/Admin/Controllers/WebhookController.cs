@@ -255,8 +255,7 @@ namespace CodersGear.Areas.Admin.Controllers
         /// <summary>
         /// Delete all non-Printify products from the database
         /// </summary>
-        [HttpPost]
-        [ValidateAntiForgeryToken]
+        [HttpGet] // Allow GET for easy browser access
         public async Task<IActionResult> DeleteNonPrintifyProducts()
         {
             try
