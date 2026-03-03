@@ -17,8 +17,24 @@ builder.Services.AddControllersWithViews();
 
 // Add API controllers for webhooks
 builder.Services.AddControllers();
-builder.Services.AddDbContext<ApplicationDbContext>(options=>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Configure database - use PostgreSQL if DATABASE_URL is available (Railway), otherwise SQL Server
+var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+if (!string.IsNullOrEmpty(databaseUrl))
+{
+    // Railway provides DATABASE_URL in format: postgres://user:pass@host:port/database
+    // Convert to Npgsql format: Host=host;Port=port;Database=database;Username=user;Password=pass
+    var uri = new Uri(databaseUrl);
+    var userInfo = uri.UserInfo.Split(':');
+    var connectionString = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true";
+
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseNpgsql(connectionString));
+}
+else
+{
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+}
 
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
 builder.Services.Configure<PrintifySettings>(builder.Configuration.GetSection("Printify"));
@@ -56,6 +72,34 @@ builder.Services.AddAntiforgery(options =>
 
 var app = builder.Build();
 
+// Apply database migrations or create database
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    try
+    {
+        // For fresh database (like Railway PostgreSQL), create from scratch
+        // For existing databases with migrations, use Migrate()
+        if (db.Database.IsNpgsql())
+        {
+            // PostgreSQL - ensure database is created (handles fresh installs)
+            db.Database.EnsureCreated();
+            Console.WriteLine("PostgreSQL database created/verified successfully.");
+        }
+        else
+        {
+            // SQL Server - use migrations
+            db.Database.Migrate();
+            Console.WriteLine("Database migration completed successfully.");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Database setup failed: {ex.Message}");
+        // Log but don't crash - allows debugging
+    }
+}
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
@@ -66,7 +110,18 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-StripeConfiguration.ApiKey = builder.Configuration.GetSection("Stripe:SecretKey").Get<string>();
+
+// Configure Stripe - handle missing key gracefully
+var stripeKey = builder.Configuration.GetSection("Stripe:SecretKey").Get<string>();
+if (!string.IsNullOrEmpty(stripeKey))
+{
+    StripeConfiguration.ApiKey = stripeKey;
+}
+else
+{
+    Console.WriteLine("Warning: Stripe:SecretKey not configured");
+}
+
 app.UseRouting();
 
 app.UseAuthentication();
