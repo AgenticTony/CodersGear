@@ -32,4 +32,6 @@ jobs:
           username: ${{ secrets.SMARTASP_USERNAME }}
           password: ${{ secrets.SMARTASP_PASSWORD }}
           local-dir: ./publish/
-          server-dir: /wwwroot/
+          server-dir: /
+          port: 21
+          protocol: ftp
