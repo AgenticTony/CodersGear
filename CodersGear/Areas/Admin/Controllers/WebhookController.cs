@@ -1,0 +1,500 @@
+using Microsoft.AspNetCore.Mvc;
+using CodersGear.Utility;
+using CodersGear.DataAccess.Repository.IRepository;
+using CodersGear.DataAccess.Data;
+using CodersGear.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
+
+namespace CodersGear.Areas.Admin.Controllers
+{
+    [Area("Admin")]
+    [Authorize(Roles = SD.Role_Admin)]
+    public class WebhookController : Controller
+    {
+        private readonly IPrintifyService _printifyService;
+        private readonly ILogger<WebhookController> _logger;
+        private readonly IConfiguration _configuration;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly ApplicationDbContext _dbContext;
+        private readonly IPrintifyProductSyncService _syncService;
+
+        public WebhookController(
+            IPrintifyService printifyService,
+            ILogger<WebhookController> logger,
+            IConfiguration configuration,
+            IUnitOfWork unitOfWork,
+            ApplicationDbContext dbContext,
+            IPrintifyProductSyncService syncService)
+        {
+            _printifyService = printifyService;
+            _logger = logger;
+            _configuration = configuration;
+            _unitOfWork = unitOfWork;
+            _dbContext = dbContext;
+            _syncService = syncService;
+        }
+
+        public async Task<IActionResult> Index()
+        {
+            var shopId = _configuration["Printify:ShopId"];
+
+            if (string.IsNullOrEmpty(shopId))
+            {
+                TempData["error"] = "Printify Shop ID is not configured. Please set Printify:ShopId in your configuration.";
+                return View(new WebhookIndexViewModel
+                {
+                    ShopId = "",
+                    Webhooks = new List<PrintifyWebhook>(),
+                    WebhookUrl = ""
+                });
+            }
+
+            try
+            {
+                var webhooks = await _printifyService.GetWebhooksAsync(shopId);
+                var webhookUrl = GetWebhookUrl();
+
+                var viewModel = new WebhookIndexViewModel
+                {
+                    ShopId = shopId,
+                    Webhooks = webhooks,
+                    WebhookUrl = webhookUrl,
+                    ValidTopics = GetValidWebhookTopics()
+                };
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching webhooks for shop {ShopId}", shopId);
+                TempData["error"] = $"Error fetching webhooks: {ex.Message}";
+                return View(new WebhookIndexViewModel
+                {
+                    ShopId = shopId ?? "",
+                    Webhooks = new List<PrintifyWebhook>(),
+                    WebhookUrl = GetWebhookUrl()
+                });
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(string topic)
+        {
+            var shopId = _configuration["Printify:ShopId"];
+            var webhookUrl = GetWebhookUrl();
+            var secret = _configuration["Printify:WebhookSecret"];
+
+            if (string.IsNullOrEmpty(shopId))
+            {
+                TempData["error"] = "Printify Shop ID is not configured.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (string.IsNullOrEmpty(topic))
+            {
+                TempData["error"] = "Topic is required.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            try
+            {
+                var success = await _printifyService.CreateWebhookAsync(shopId, topic, webhookUrl, secret);
+
+                if (success)
+                {
+                    _logger.LogInformation("Created webhook for shop {ShopId} with topic {Topic}", shopId, topic);
+                    TempData["success"] = $"Webhook created successfully for topic: {topic}";
+                }
+                else
+                {
+                    TempData["error"] = "Failed to create webhook.";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating webhook for shop {ShopId}", shopId);
+                TempData["error"] = $"Error creating webhook: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateAll()
+        {
+            var shopId = _configuration["Printify:ShopId"];
+            var webhookUrl = GetWebhookUrl();
+            var secret = _configuration["Printify:WebhookSecret"];
+
+            if (string.IsNullOrEmpty(shopId))
+            {
+                TempData["error"] = "Printify Shop ID is not configured.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var topics = GetDefaultTopics();
+            var results = new List<string>();
+
+            foreach (var topic in topics)
+            {
+                try
+                {
+                    var success = await _printifyService.CreateWebhookAsync(shopId, topic, webhookUrl, secret);
+                    results.Add($"{topic}: {(success ? "✓" : "✗")}");
+                }
+                catch (Exception ex)
+                {
+                    results.Add($"{topic}: Error - {ex.Message}");
+                }
+            }
+
+            TempData["success"] = $"Webhook creation results:\n{string.Join("\n", results)}";
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Delete(string webhookId)
+        {
+            var shopId = _configuration["Printify:ShopId"];
+
+            if (string.IsNullOrEmpty(shopId))
+            {
+                TempData["error"] = "Printify Shop ID is not configured.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (string.IsNullOrEmpty(webhookId))
+            {
+                TempData["error"] = "Webhook ID is required.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            try
+            {
+                var success = await _printifyService.DeleteWebhookAsync(shopId, webhookId);
+
+                if (success)
+                {
+                    _logger.LogInformation("Deleted webhook {WebhookId} from shop {ShopId}", webhookId, shopId);
+                    TempData["success"] = "Webhook deleted successfully.";
+                }
+                else
+                {
+                    TempData["error"] = "Failed to delete webhook.";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting webhook {WebhookId}", webhookId);
+                TempData["error"] = $"Error deleting webhook: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        /// <summary>
+        /// Fix missing database columns from failed migration
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> FixMigration()
+        {
+            try
+            {
+                // Check if columns exist first
+                var connection = _dbContext.Database.GetDbConnection();
+                await connection.OpenAsync();
+
+                using var cmd = connection.CreateCommand();
+
+                // Add all missing Printify-related columns
+                cmd.CommandText = @"
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'AdditionalImages') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""AdditionalImages"" text NULL;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'IsPrintifyProduct') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""IsPrintifyProduct"" boolean NOT NULL DEFAULT false;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'PrintifyProductId') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""PrintifyProductId"" text NULL;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'PrintifyShopId') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""PrintifyShopId"" text NULL;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'PrintifyOptionsData') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""PrintifyOptionsData"" text NULL;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'PrintifyVariantData') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""PrintifyVariantData"" text NULL;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'LastSyncedAt') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""LastSyncedAt"" timestamp NULL;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Products' AND column_name = 'Visible') THEN
+                            ALTER TABLE ""Products"" ADD COLUMN ""Visible"" boolean NOT NULL DEFAULT true;
+                        END IF;
+                    END $$;";
+
+                await cmd.ExecuteNonQueryAsync();
+                await connection.CloseAsync();
+
+                _logger.LogInformation("Migration fix applied successfully");
+                TempData["success"] = "Migration fix applied successfully! Missing columns have been added.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error applying migration fix");
+                TempData["error"] = $"Error applying migration fix: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        /// <summary>
+        /// Debug: Show product counts
+        /// </summary>
+        [HttpGet]
+        public IActionResult ProductStats()
+        {
+            var total = _unitOfWork.Product.GetAll().Count();
+            var visible = _unitOfWork.Product.GetAll().Where(p => p.Visible).Count();
+            var printify = _unitOfWork.Product.GetAll().Where(p => p.IsPrintifyProduct).Count();
+            var withCategory = _unitOfWork.Product.GetAll().Where(p => p.CategoryId.HasValue).Count();
+
+            return Json(new
+            {
+                TotalProducts = total,
+                VisibleProducts = visible,
+                PrintifyProducts = printify,
+                WithCategory = withCategory,
+                Products = _unitOfWork.Product.GetAll().Select(p => new { p.ProductId, p.ProductName, p.Visible, p.IsPrintifyProduct, p.CategoryId }).Take(10)
+            });
+        }
+
+        /// <summary>
+        /// Fix all products to be visible
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> FixProductVisibility()
+        {
+            try
+            {
+                var connection = _dbContext.Database.GetDbConnection();
+                await connection.OpenAsync();
+
+                using var cmd = connection.CreateCommand();
+                cmd.CommandText = @"UPDATE ""Products"" SET ""Visible"" = true WHERE ""IsPrintifyProduct"" = true";
+
+                var updatedCount = await cmd.ExecuteNonQueryAsync();
+                await connection.CloseAsync();
+
+                TempData["success"] = $"Fixed visibility for {updatedCount} products.";
+            }
+            catch (Exception ex)
+            {
+                TempData["error"] = $"Error: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        /// <summary>
+        /// Sync all products from Printify
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> SyncProducts()
+        {
+            try
+            {
+                await _syncService.SyncProductsAsync();
+                TempData["success"] = "Products synced successfully from Printify!";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error syncing products from Printify");
+                TempData["error"] = $"Error syncing products: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        /// <summary>
+        /// Delete all non-Printify products from the database
+        /// </summary>
+        [HttpGet] // Allow GET for easy browser access
+        public async Task<IActionResult> DeleteNonPrintifyProducts()
+        {
+            try
+            {
+                var connection = _dbContext.Database.GetDbConnection();
+                await connection.OpenAsync();
+
+                using var cmd = connection.CreateCommand();
+                cmd.CommandText = @"DELETE FROM ""Products"" WHERE ""IsPrintifyProduct"" = false OR ""IsPrintifyProduct"" IS NULL";
+
+                var deletedCount = await cmd.ExecuteNonQueryAsync();
+                await connection.CloseAsync();
+
+                _logger.LogInformation("Deleted {Count} non-Printify products", deletedCount);
+                TempData["success"] = $"Deleted {deletedCount} non-Printify products.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting non-Printify products");
+                TempData["error"] = $"Error deleting non-Printify products: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        /// <summary>
+        /// Re-categorize all Printify products based on improved keyword matching
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> ReCategorizeProducts()
+        {
+            try
+            {
+                var connection = _dbContext.Database.GetDbConnection();
+                await connection.OpenAsync();
+
+                using var cmd = connection.CreateCommand();
+
+                // Fix T-Shirts that ended up in wrong category
+                cmd.CommandText = @"
+                    UPDATE ""Products""
+                    SET ""CategoryId"" = 1
+                    WHERE (""ProductName"" ILIKE '%t-shirt%'
+                       OR ""ProductName"" ILIKE '%tshirt%'
+                       OR ""ProductName"" ILIKE '% tee%'
+                       OR ""ProductName"" ILIKE '%shirt%'
+                       OR ""ProductName"" ILIKE '%sleeve%')
+                    AND ""CategoryId"" != 1
+                    AND ""IsPrintifyProduct"" = true";
+
+                var fixedCount = await cmd.ExecuteNonQueryAsync();
+                await connection.CloseAsync();
+
+                TempData["success"] = $"Re-categorized {fixedCount} products to T-Shirts category.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error re-categorizing products");
+                TempData["error"] = $"Error: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        /// <summary>
+        /// Manually notify Printify that all products are published successfully
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> NotifyAllPublished()
+        {
+            try
+            {
+                var shopId = _configuration["Printify:ShopId"];
+                if (string.IsNullOrEmpty(shopId))
+                {
+                    TempData["error"] = "Printify Shop ID is not configured.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                var products = _unitOfWork.Product.GetAll()
+                    .Where(p => p.IsPrintifyProduct && !string.IsNullOrEmpty(p.PrintifyProductId))
+                    .ToList();
+
+                var baseUrl = $"{Request.Scheme}://{Request.Host}";
+                var successCount = 0;
+                var failCount = 0;
+
+                foreach (var product in products)
+                {
+                    var externalHandle = $"/Customer/Home/Details?productId={product.ProductId}";
+
+                    var success = await _printifyService.NotifyPublishingSucceededAsync(
+                        shopId,
+                        product.PrintifyProductId!,
+                        product.ProductId.ToString(),
+                        externalHandle
+                    );
+
+                    if (success)
+                    {
+                        successCount++;
+                        _logger.LogInformation($"Notified Printify: {product.ProductName} ({product.PrintifyProductId})");
+                    }
+                    else
+                    {
+                        failCount++;
+                        _logger.LogWarning($"Failed to notify Printify: {product.ProductName} ({product.PrintifyProductId})");
+                    }
+                }
+
+                TempData["success"] = $"Notified Printify for {successCount} products. Failed: {failCount}";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error notifying Printify");
+                TempData["error"] = $"Error: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        private string GetWebhookUrl()
+        {
+            var baseUrl = _configuration["Printify:WebhookBaseUrl"]
+                ?? $"{Request.Scheme}://{Request.Host}";
+            return $"{baseUrl.TrimEnd('/')}/api/printifywebhook";
+        }
+
+        private List<WebhookTopicInfo> GetValidWebhookTopics()
+        {
+            return new List<WebhookTopicInfo>
+            {
+                new() { Topic = "order:created", Description = "Order was created" },
+                new() { Topic = "order:updated", Description = "Order status was updated" },
+                new() { Topic = "order:sent-to-production", Description = "Order sent to production" },
+                new() { Topic = "order:shipment:created", Description = "Items have been shipped" },
+                new() { Topic = "order:shipment:delivered", Description = "Items have been delivered" },
+                new() { Topic = "product:publish:started", Description = "Product publishing started" },
+                new() { Topic = "product:deleted", Description = "Product was deleted" },
+                new() { Topic = "shop:disconnected", Description = "Shop was disconnected" }
+            };
+        }
+
+        private List<string> GetDefaultTopics()
+        {
+            return new List<string>
+            {
+                "order:updated",
+                "order:shipment:created",
+                "order:shipment:delivered",
+                "product:publish:started",
+                "product:deleted"
+            };
+        }
+    }
+
+    public class WebhookIndexViewModel
+    {
+        public string ShopId { get; set; } = string.Empty;
+        public List<PrintifyWebhook> Webhooks { get; set; } = new();
+        public string WebhookUrl { get; set; } = string.Empty;
+        public List<WebhookTopicInfo> ValidTopics { get; set; } = new();
+    }
+
+    public class WebhookTopicInfo
+    {
+        public string Topic { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+    }
+}

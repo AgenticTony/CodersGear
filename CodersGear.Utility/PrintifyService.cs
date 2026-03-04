@@ -12,9 +12,11 @@ namespace CodersGear.Utility
         Task<PrintifyProduct?> GetProductAsync(string shopId, string productId);
         Task<PrintifyOrderResponse> CreateOrderAsync(string shopId, PrintifyOrderRequest order);
         Task<PrintifyOrder?> GetOrderAsync(string shopId, string orderId);
-        Task<bool> CreateWebhookAsync(string shopId, string webhookUrl, List<string> events);
+        Task<bool> CreateWebhookAsync(string shopId, string topic, string webhookUrl, string? secret = null);
         Task<List<PrintifyWebhook>> GetWebhooksAsync(string shopId);
         Task<bool> DeleteWebhookAsync(string shopId, string webhookId);
+        Task<bool> NotifyPublishingSucceededAsync(string shopId, string productId, string externalId, string handle);
+        Task<bool> NotifyPublishingFailedAsync(string shopId, string productId, string reason);
     }
 
     public class PrintifyService : IPrintifyService
@@ -40,6 +42,11 @@ namespace CodersGear.Utility
         {
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_settings.ApiToken}");
+            // User-Agent header is required by Printify API
+            if (!_httpClient.DefaultRequestHeaders.Contains("User-Agent"))
+            {
+                _httpClient.DefaultRequestHeaders.Add("User-Agent", "CodersGear/1.0");
+            }
         }
 
         public async Task<List<PrintifyShop>> GetShopsAsync()
@@ -145,26 +152,31 @@ namespace CodersGear.Utility
             return JsonSerializer.Deserialize<PrintifyOrder>(content, _jsonOptions);
         }
 
-        public async Task<bool> CreateWebhookAsync(string shopId, string webhookUrl, List<string> events)
+        public async Task<bool> CreateWebhookAsync(string shopId, string topic, string webhookUrl, string? secret = null)
         {
             SetAuthHeader();
             var webhookRequest = new
             {
+                topic = topic,
                 url = webhookUrl,
-                events = events
+                secret = secret
             };
 
             var json = JsonSerializer.Serialize(webhookRequest, _jsonOptions);
             var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+            _logger.LogInformation($"Creating Printify webhook: topic={topic}, url={webhookUrl}, hasSecret={!string.IsNullOrEmpty(secret)}");
 
             var response = await _httpClient.PostAsync($"{_settings.ApiUrl}/shops/{shopId}/webhooks.json", content);
 
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError($"Failed to create webhook: {response.StatusCode}. Error: {errorContent}");
                 throw new HttpRequestException($"Failed to create webhook: {response.StatusCode}. Error: {errorContent}");
             }
 
+            _logger.LogInformation($"Successfully created Printify webhook for topic: {topic}");
             return response.IsSuccessStatusCode;
         }
 
@@ -194,6 +206,64 @@ namespace CodersGear.Utility
 
             return response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.NotFound;
         }
+
+        /// <summary>
+        /// Notify Printify that product publishing succeeded (call this after successful publish to external platform)
+        /// </summary>
+        public async Task<bool> NotifyPublishingSucceededAsync(string shopId, string productId, string externalId, string handle)
+        {
+            SetAuthHeader();
+            var request = new
+            {
+                external = new
+                {
+                    id = externalId,
+                    handle = handle
+                }
+            };
+
+            var json = JsonSerializer.Serialize(request, _jsonOptions);
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync($"{_settings.ApiUrl}/shops/{shopId}/products/{productId}/publishing_succeeded.json", content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError($"Failed to notify publishing success: {response.StatusCode}. Error: {errorContent}");
+                return false;
+            }
+
+            _logger.LogInformation($"Successfully notified Printify of publishing success for product: {productId}");
+            return true;
+        }
+
+        /// <summary>
+        /// Notify Printify that product publishing failed (call this after failed publish to external platform)
+        /// </summary>
+        public async Task<bool> NotifyPublishingFailedAsync(string shopId, string productId, string reason)
+        {
+            SetAuthHeader();
+            var request = new
+            {
+                reason = reason
+            };
+
+            var json = JsonSerializer.Serialize(request, _jsonOptions);
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync($"{_settings.ApiUrl}/shops/{shopId}/products/{productId}/publishing_failed.json", content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError($"Failed to notify publishing failure: {response.StatusCode}. Error: {errorContent}");
+                return false;
+            }
+
+            _logger.LogInformation($"Successfully notified Printify of publishing failure for product: {productId}");
+            return true;
+        }
     }
 
     public class PrintifyWebhook
@@ -201,11 +271,17 @@ namespace CodersGear.Utility
         [JsonPropertyName("id")]
         public string Id { get; set; } = string.Empty;
 
+        [JsonPropertyName("topic")]
+        public string Topic { get; set; } = string.Empty;
+
         [JsonPropertyName("url")]
         public string Url { get; set; } = string.Empty;
 
-        [JsonPropertyName("events")]
-        public List<string> Events { get; set; } = new();
+        [JsonPropertyName("secret")]
+        public string? Secret { get; set; }
+
+        [JsonPropertyName("shop_id")]
+        public int ShopId { get; set; }
 
         [JsonPropertyName("created_at")]
         public DateTime CreatedAt { get; set; }

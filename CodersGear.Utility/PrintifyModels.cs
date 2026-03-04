@@ -340,7 +340,7 @@ namespace CodersGear.Utility
         public int ShopId { get; set; }
 
         [JsonPropertyName("external")]
-        public PrintifyProductPublishingExternal External { get; set; } = null!;
+        public PrintifyProductPublishingExternal? External { get; set; }
     }
 
     public class PrintifyProductPublishingExternal
@@ -350,6 +350,57 @@ namespace CodersGear.Utility
 
         [JsonPropertyName("handle")]
         public string Handle { get; set; } = string.Empty;
+    }
+
+    public class PrintifyPublishStartedData
+    {
+        [JsonPropertyName("shop_id")]
+        public int ShopId { get; set; }
+
+        [JsonPropertyName("publish_details")]
+        public PrintifyPublishDetails? PublishDetails { get; set; }
+
+        [JsonPropertyName("action")]
+        public string Action { get; set; } = string.Empty;
+    }
+
+    public class PrintifyPublishDetails
+    {
+        [JsonPropertyName("title")]
+        public bool Title { get; set; }
+
+        [JsonPropertyName("description")]
+        public bool Description { get; set; }
+
+        [JsonPropertyName("images")]
+        public bool Images { get; set; }
+
+        [JsonPropertyName("variants")]
+        public bool Variants { get; set; }
+
+        [JsonPropertyName("tags")]
+        public bool Tags { get; set; }
+    }
+
+    public class PrintifyShipmentDeliveredData
+    {
+        [JsonPropertyName("shop_id")]
+        public int ShopId { get; set; }
+
+        [JsonPropertyName("delivered_at")]
+        public string DeliveredAt { get; set; } = string.Empty;
+
+        [JsonPropertyName("skus")]
+        public List<string> Skus { get; set; } = new();
+    }
+
+    public class PrintifyProductDeletedData
+    {
+        [JsonPropertyName("shop_id")]
+        public int ShopId { get; set; }
+
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = string.Empty;
     }
     #endregion
 }

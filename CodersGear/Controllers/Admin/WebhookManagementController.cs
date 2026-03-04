@@ -22,6 +22,20 @@ namespace CodersGear.Controllers.Admin
         }
 
         /// <summary>
+        /// Get list of valid Printify webhook topics
+        /// GET: /admin/webhookmanagement/topics
+        /// </summary>
+        [HttpGet("topics")]
+        public IActionResult GetValidTopics()
+        {
+            return Ok(new
+            {
+                success = true,
+                topics = GetValidWebhookTopics()
+            });
+        }
+
+        /// <summary>
         /// List all webhooks for a Printify shop
         /// GET: /admin/webhookmanagement/list?shopId={shopId}
         /// </summary>
@@ -38,8 +52,9 @@ namespace CodersGear.Controllers.Admin
                     webhooks = webhooks.Select(w => new
                     {
                         id = w.Id,
+                        topic = w.Topic,
                         url = w.Url,
-                        events = w.Events,
+                        shopId = w.ShopId,
                         createdAt = w.CreatedAt
                     })
                 });
@@ -53,10 +68,13 @@ namespace CodersGear.Controllers.Admin
 
         /// <summary>
         /// Create a new webhook for a Printify shop (simple GET method for browser testing)
-        /// GET: /admin/webhookmanagement/create-simple?shopId={shopId}&webhookUrl={url}
+        /// GET: /admin/webhookmanagement/create-simple?shopId={shopId}&webhookUrl={url}&topic={topic}
         /// </summary>
         [HttpGet("create-simple")]
-        public async Task<IActionResult> CreateWebhookSimple([FromQuery] string shopId, [FromQuery] string webhookUrl)
+        public async Task<IActionResult> CreateWebhookSimple(
+            [FromQuery] string shopId,
+            [FromQuery] string webhookUrl,
+            [FromQuery] string? topic = null)
         {
             try
             {
@@ -70,19 +88,24 @@ namespace CodersGear.Controllers.Admin
                     return BadRequest(new { success = false, error = "webhookUrl is required" });
                 }
 
-                var events = GetDefaultEvents();
-                var success = await _printifyService.CreateWebhookAsync(shopId, webhookUrl, events);
+                // Use provided topic or default to order:updated
+                var webhookTopic = topic ?? "order:updated";
+
+                // Get webhook secret from configuration
+                var secret = _configuration["Printify:WebhookSecret"];
+
+                var success = await _printifyService.CreateWebhookAsync(shopId, webhookTopic, webhookUrl, secret);
 
                 if (success)
                 {
-                    _logger.LogInformation("Created webhook for shop {ShopId} at {Url}", shopId, webhookUrl);
+                    _logger.LogInformation("Created webhook for shop {ShopId} at {Url} with topic {Topic}", shopId, webhookUrl, webhookTopic);
                     return Ok(new
                     {
                         success = true,
                         message = "Webhook created successfully!",
                         shopId = shopId,
                         url = webhookUrl,
-                        events = events
+                        topic = webhookTopic
                     });
                 }
                 else
@@ -100,7 +123,7 @@ namespace CodersGear.Controllers.Admin
         /// <summary>
         /// Create a new webhook for a Printify shop
         /// POST: /admin/webhookmanagement/create
-        /// Body: { "shopId": "123456", "webhookUrl": "https://yourdomain.com/api/printifywebhook", "events": ["order:updated", "order:shipment:created"] }
+        /// Body: { "shopId": "123456", "webhookUrl": "https://yourdomain.com/api/printifywebhook", "topic": "order:updated" }
         /// </summary>
         [HttpPost("create")]
         public async Task<IActionResult> CreateWebhook([FromBody] CreateWebhookRequest request)
@@ -117,23 +140,26 @@ namespace CodersGear.Controllers.Admin
                     return BadRequest(new { success = false, error = "webhookUrl is required" });
                 }
 
-                if (request.Events == null || !request.Events.Any())
+                if (string.IsNullOrEmpty(request.Topic))
                 {
-                    request.Events = GetDefaultEvents();
+                    return BadRequest(new { success = false, error = "topic is required. Valid topics: " + string.Join(", ", GetValidWebhookTopics()) });
                 }
 
-                var success = await _printifyService.CreateWebhookAsync(request.ShopId, request.WebhookUrl, request.Events);
+                // Get webhook secret from configuration
+                var secret = _configuration["Printify:WebhookSecret"];
+
+                var success = await _printifyService.CreateWebhookAsync(request.ShopId, request.Topic, request.WebhookUrl, secret);
 
                 if (success)
                 {
-                    _logger.LogInformation("Created webhook for shop {ShopId} at {Url}", request.ShopId, request.WebhookUrl);
+                    _logger.LogInformation("Created webhook for shop {ShopId} at {Url} with topic {Topic}", request.ShopId, request.WebhookUrl, request.Topic);
                     return Ok(new
                     {
                         success = true,
                         message = "Webhook created successfully",
                         shopId = request.ShopId,
                         url = request.WebhookUrl,
-                        events = request.Events
+                        topic = request.Topic
                     });
                 }
                 else
@@ -144,6 +170,61 @@ namespace CodersGear.Controllers.Admin
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating webhook for shop {ShopId}", request.ShopId);
+                return BadRequest(new { success = false, error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Create webhooks for all recommended topics
+        /// POST: /admin/webhookmanagement/create-all
+        /// Body: { "shopId": "123456", "webhookUrl": "https://yourdomain.com/api/printifywebhook" }
+        /// </summary>
+        [HttpPost("create-all")]
+        public async Task<IActionResult> CreateAllWebhooks([FromBody] CreateWebhookRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(request.ShopId))
+                {
+                    return BadRequest(new { success = false, error = "shopId is required" });
+                }
+
+                if (string.IsNullOrEmpty(request.WebhookUrl))
+                {
+                    return BadRequest(new { success = false, error = "webhookUrl is required" });
+                }
+
+                var results = new List<object>();
+                var topics = GetDefaultTopics();
+                var secret = _configuration["Printify:WebhookSecret"];
+
+                foreach (var topic in topics)
+                {
+                    try
+                    {
+                        var success = await _printifyService.CreateWebhookAsync(request.ShopId, topic, request.WebhookUrl, secret);
+                        results.Add(new { topic, success });
+                        _logger.LogInformation("Created webhook for topic {Topic}: {Success}", topic, success);
+                    }
+                    catch (Exception ex)
+                    {
+                        results.Add(new { topic, success = false, error = ex.Message });
+                        _logger.LogError(ex, "Failed to create webhook for topic {Topic}", topic);
+                    }
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Webhook creation completed",
+                    shopId = request.ShopId,
+                    webhookUrl = request.WebhookUrl,
+                    results
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating all webhooks for shop {ShopId}", request.ShopId);
                 return BadRequest(new { success = false, error = ex.Message });
             }
         }
@@ -207,15 +288,36 @@ namespace CodersGear.Controllers.Admin
             });
         }
 
-        private List<string> GetDefaultEvents()
+        /// <summary>
+        /// Valid Printify webhook topics for reference
+        /// </summary>
+        private List<string> GetValidWebhookTopics()
+        {
+            return new List<string>
+            {
+                "shop:disconnected",
+                "product:deleted",
+                "product:publish:started",
+                "order:created",
+                "order:updated",
+                "order:sent-to-production",
+                "order:shipment:created",
+                "order:shipment:delivered"
+            };
+        }
+
+        /// <summary>
+        /// Default topics recommended for this application
+        /// </summary>
+        private List<string> GetDefaultTopics()
         {
             return new List<string>
             {
                 "order:updated",
                 "order:shipment:created",
-                "product:publishing_succeeded",
-                "product:publishing_failed",
-                "product:unpublished"
+                "order:shipment:delivered",
+                "product:publish:started",
+                "product:deleted"
             };
         }
     }
@@ -224,6 +326,10 @@ namespace CodersGear.Controllers.Admin
     {
         public string ShopId { get; set; } = string.Empty;
         public string WebhookUrl { get; set; } = string.Empty;
-        public List<string>? Events { get; set; }
+
+        /// <summary>
+        /// Single topic for the webhook (Printify requires one topic per webhook)
+        /// </summary>
+        public string? Topic { get; set; }
     }
 }

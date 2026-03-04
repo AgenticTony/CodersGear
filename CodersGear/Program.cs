@@ -82,30 +82,19 @@ builder.Services.AddAntiforgery(options =>
 
 var app = builder.Build();
 
-// Apply database migrations or create database
+// Apply database migrations
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     try
     {
-        // For fresh database (like Railway PostgreSQL), create from scratch
-        // For existing databases with migrations, use Migrate()
-        if (db.Database.IsNpgsql())
-        {
-            // PostgreSQL - ensure database is created (handles fresh installs)
-            db.Database.EnsureCreated();
-            Console.WriteLine("PostgreSQL database created/verified successfully.");
-        }
-        else
-        {
-            // SQL Server - use migrations
-            db.Database.Migrate();
-            Console.WriteLine("Database migration completed successfully.");
-        }
+        // Apply all pending migrations (works for both PostgreSQL and SQL Server)
+        db.Database.Migrate();
+        Console.WriteLine("Database migration completed successfully.");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Database setup failed: {ex.Message}");
+        Console.WriteLine($"Database migration failed: {ex.Message}");
         // Log but don't crash - allows debugging
     }
 }
