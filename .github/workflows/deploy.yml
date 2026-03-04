@@ -25,7 +25,7 @@ jobs:
       - name: Publish
         run: dotnet publish CodersGear/CodersGear.csproj --configuration Release --output ./publish
 
-      - name: Deploy to SmarterASP via FTP
+      - name: Deploy to SmarterASP via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.SMARTASP_FTP_SERVER }}
@@ -34,4 +34,5 @@ jobs:
           local-dir: ./publish/
           server-dir: /
           port: 21
-          protocol: ftp
+          protocol: ftps
+          security: strict
