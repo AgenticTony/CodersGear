@@ -13,7 +13,6 @@ namespace CodersGear.DataAccess.Migrations
             migrationBuilder.AddColumn<string>(
                 name: "SessionId",
                 table: "ShoppingCarts",
-                type: "nvarchar(max)",
                 nullable: false,
                 defaultValue: "");
         }
