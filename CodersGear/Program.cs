@@ -17,24 +17,10 @@ builder.Services.AddControllersWithViews();
 
 // Add API controllers for webhooks
 builder.Services.AddControllers();
-// Configure database - use PostgreSQL if DATABASE_URL is available (Railway), otherwise SQL Server
-var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-if (!string.IsNullOrEmpty(databaseUrl))
-{
-    // Railway provides DATABASE_URL in format: postgres://user:pass@host:port/database
-    // Convert to Npgsql format: Host=host;Port=port;Database=database;Username=user;Password=pass
-    var uri = new Uri(databaseUrl);
-    var userInfo = uri.UserInfo.Split(':');
-    var connectionString = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true";
 
-    builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseNpgsql(connectionString));
-}
-else
-{
-    builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-}
+// Configure SQL Server database
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
 builder.Services.Configure<PrintifySettings>(builder.Configuration.GetSection("Printify"));
@@ -88,7 +74,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     try
     {
-        // Apply all pending migrations (works for both PostgreSQL and SQL Server)
+        // Apply all pending migrations
         db.Database.Migrate();
         Console.WriteLine("Database migration completed successfully.");
     }

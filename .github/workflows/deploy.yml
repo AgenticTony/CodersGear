@@ -1,0 +1,35 @@
+name: Build, publish and deploy to SmarterASP
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build_and_deploy:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore CodersGear/CodersGear.csproj
+
+      - name: Build
+        run: dotnet build CodersGear/CodersGear.csproj --configuration Release --no-restore
+
+      - name: Publish
+        run: dotnet publish CodersGear/CodersGear.csproj --configuration Release --output ./publish
+
+      - name: Deploy to SmarterASP
+        uses: talunzhang/web-deploy@v1
+        with:
+          website-name: ${{ secrets.SMARTASP_WEBSITE_NAME }}
+          server-computer-name: ${{ secrets.SMARTASP_SERVER_URL }}
+          server-username: ${{ secrets.SMARTASP_USERNAME }}
+          server-password: ${{ secrets.SMARTASP_PASSWORD }}
+          source-path: './publish'

@@ -12,13 +12,13 @@ namespace CodersGear.DataAccess.Migrations
             migrationBuilder.AddColumn<string>(
                 name: "AdditionalImages",
                 table: "Products",
-                type: "text",
+                type: "nvarchar(max)",
                 nullable: true);
 
             migrationBuilder.AddColumn<bool>(
                 name: "IsPrintifyProduct",
                 table: "Products",
-                type: "boolean",
+                type: "bit",
                 nullable: false,
                 defaultValue: false);
         }
