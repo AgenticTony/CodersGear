@@ -11,9 +11,36 @@ using Stripe.Checkout;
 namespace CodersGear.Areas.Customer.Controllers
 {
     [Area("Customer")]
-    [Authorize]
     public class CartController : Controller
     {
+        private const string SessionKeyId = "GuestCartId";
+
+        private string GetOrSetSessionId()
+        {
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                // Logged in users don't use session-based cart
+                return null;
+            }
+
+            string sessionId = HttpContext.Session.GetString(SessionKeyId);
+            if (string.IsNullOrEmpty(sessionId))
+            {
+                sessionId = Guid.NewGuid().ToString();
+                HttpContext.Session.SetString(SessionKeyId, sessionId);
+            }
+            return sessionId;
+        }
+
+        private string GetUserId()
+        {
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                var claimsIdentity = (ClaimsIdentity)User.Identity;
+                return claimsIdentity.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            }
+            return null;
+        }
         private readonly IUnitOfWork _unitOfWork;
         [BindProperty]
         public ShoppingCartVM ShoppingCartVM { get; set; }
@@ -25,14 +52,26 @@ namespace CodersGear.Areas.Customer.Controllers
 
         public IActionResult Index()
         {
-            var claimsIdentity = (ClaimsIdentity)User.Identity;
-            var userId = claimsIdentity.FindFirst(ClaimTypes.NameIdentifier).Value;
+            var userId = GetUserId();
+            var sessionId = GetOrSetSessionId();
 
-            // Get all shopping carts with product and category, filtered by user
+            IEnumerable<ShoppingCart> cartList;
+
+            if (userId != null)
+            {
+                // Logged in user - get by user ID
+                cartList = _unitOfWork.ShoppingCart.GetAll(u => u.ApplicationUserId == userId,
+                    includeProperties: "Product,Product.Category");
+            }
+            else
+            {
+                // Guest user - get by session ID
+                cartList = _unitOfWork.ShoppingCart.GetBySessionId(sessionId);
+            }
+
             ShoppingCartVM = new()
             {
-                ShoppingCartList = _unitOfWork.ShoppingCart.GetAll(u => u.ApplicationUserId == userId,
-                includeProperties: "Product,Product.Category"),
+                ShoppingCartList = cartList,
                 OrderHeader = new()
             };
 
@@ -48,7 +87,13 @@ namespace CodersGear.Areas.Customer.Controllers
 
         public IActionResult Increment(int id)
         {
-            var cartFromDb = _unitOfWork.ShoppingCart.Get(u => u.Id == id);
+            var userId = GetUserId();
+            var sessionId = GetOrSetSessionId();
+
+            // Get cart item with ownership verification
+            var cartFromDb = _unitOfWork.ShoppingCart.Get(u => u.Id == id &&
+                (userId != null ? u.ApplicationUserId == userId : u.SessionId == sessionId));
+
             if (cartFromDb != null)
             {
                 cartFromDb.Count += 1;
@@ -60,7 +105,13 @@ namespace CodersGear.Areas.Customer.Controllers
 
         public IActionResult Decrement(int id)
         {
-            var cartFromDb = _unitOfWork.ShoppingCart.Get(u => u.Id == id);
+            var userId = GetUserId();
+            var sessionId = GetOrSetSessionId();
+
+            // Get cart item with ownership verification
+            var cartFromDb = _unitOfWork.ShoppingCart.Get(u => u.Id == id &&
+                (userId != null ? u.ApplicationUserId == userId : u.SessionId == sessionId));
+
             if (cartFromDb != null && cartFromDb.Count > 1)
             {
                 cartFromDb.Count -= 1;
@@ -73,7 +124,13 @@ namespace CodersGear.Areas.Customer.Controllers
         [HttpPost]
         public IActionResult Remove(int id)
         {
-            var cartFromDb = _unitOfWork.ShoppingCart.Get(u => u.Id == id);
+            var userId = GetUserId();
+            var sessionId = GetOrSetSessionId();
+
+            // Get cart item with ownership verification
+            var cartFromDb = _unitOfWork.ShoppingCart.Get(u => u.Id == id &&
+                (userId != null ? u.ApplicationUserId == userId : u.SessionId == sessionId));
+
             if (cartFromDb != null)
             {
                 _unitOfWork.ShoppingCart.Remove(cartFromDb);
@@ -83,16 +140,35 @@ namespace CodersGear.Areas.Customer.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [Authorize]
         public IActionResult Summary()
         {
-            var claimsIdentity = (ClaimsIdentity)User.Identity;
-            var userId = claimsIdentity.FindFirst(ClaimTypes.NameIdentifier).Value;
+            var userId = GetUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return RedirectToAction("Login", "Account", new { area = "Identity", returnUrl = "/Customer/Cart/Summary" });
+            }
 
-            // Get shopping cart items
+            var sessionId = HttpContext.Session.GetString(SessionKeyId);
+
+            // Get shopping cart items - merge session cart with user cart if session exists
+            IEnumerable<ShoppingCart> cartList;
+
+            if (!string.IsNullOrEmpty(sessionId))
+            {
+                // Merge session cart with user cart
+                _unitOfWork.ShoppingCart.MergeSessionCartToUserCart(sessionId, userId);
+                // Clear session ID after merge
+                HttpContext.Session.Remove(SessionKeyId);
+            }
+
+            // Get user's cart
+            cartList = _unitOfWork.ShoppingCart.GetAll(u => u.ApplicationUserId == userId,
+                includeProperties: "Product,Product.Category");
+
             ShoppingCartVM = new()
             {
-                ShoppingCartList = _unitOfWork.ShoppingCart.GetAll(u => u.ApplicationUserId == userId,
-                includeProperties: "Product,Product.Category"),
+                ShoppingCartList = cartList,
                 OrderHeader = new()
             };
 
@@ -283,6 +359,7 @@ namespace CodersGear.Areas.Customer.Controllers
             }
         }
 
+        [Authorize]
         public IActionResult OrderConfirmation(int id)
         {
             // Get order from database
@@ -297,7 +374,7 @@ namespace CodersGear.Areas.Customer.Controllers
             if (orderHeader.PaymentStatus == SD.PaymentStatus_DelayedPayment)
             {
                 // Company account - already approved, show confirmation
-                return View(id);
+                return View("OrderConfirmation", orderHeader);
             }
             else
             {
@@ -336,7 +413,9 @@ namespace CodersGear.Areas.Customer.Controllers
                                 }
                             }
 
-                            return View(id);
+                            // Reload order header to get updated data
+                            orderHeader = _unitOfWork.OrderHeader.Get(o => o.Id == id);
+                            return View("OrderConfirmation", orderHeader);
                         }
                         else
                         {

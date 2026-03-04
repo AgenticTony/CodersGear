@@ -19,5 +19,50 @@ namespace CodersGear.DataAccess.Repository
         {
             _db.ShoppingCarts.Update(obj);
         }
+
+        public IEnumerable<ShoppingCart> GetBySessionId(string sessionId)
+        {
+            return _db.ShoppingCarts
+                .Include(sc => sc.Product)
+                .ThenInclude(p => p.Category)
+                .Where(sc => sc.SessionId == sessionId)
+                .AsNoTracking()
+                .ToList();
+        }
+
+        public int MergeSessionCartToUserCart(string sessionId, string userId)
+        {
+            var sessionCarts = _db.ShoppingCarts
+                .Where(sc => sc.SessionId == sessionId)
+                .ToList();
+
+            int itemsMerged = 0;
+
+            foreach (var sessionCart in sessionCarts)
+            {
+                // Check if user already has this product in their cart
+                var userCart = _db.ShoppingCarts
+                    .FirstOrDefault(sc => sc.ApplicationUserId == userId && sc.ProductId == sessionCart.ProductId);
+
+                if (userCart != null)
+                {
+                    // Merge quantities
+                    userCart.Count += sessionCart.Count;
+                    userCart.OrderTotal += sessionCart.OrderTotal;
+                    _db.ShoppingCarts.Update(userCart);
+                }
+                else
+                {
+                    // Transfer session cart to user cart
+                    sessionCart.ApplicationUserId = userId;
+                    sessionCart.SessionId = null; // Clear session ID
+                    _db.ShoppingCarts.Update(sessionCart);
+                }
+                itemsMerged++;
+            }
+
+            _db.SaveChanges();
+            return itemsMerged;
+        }
     }
 }

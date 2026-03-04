@@ -1,9 +1,24 @@
 @model CodersGear.Models.ViewModels.ShoppingCartVM
+@using Microsoft.AspNetCore.Identity
+@using CodersGear.Models
+@inject SignInManager<ApplicationUser> SignInManager
 @{
     ViewData["Title"] = "Shopping Cart";
+    bool isGuest = !SignInManager.IsSignedIn(User);
 }
 
 <h1 class="mb-4">Shopping Cart</h1>
+
+@if (isGuest)
+{
+    <div class="alert alert-info d-flex align-items-center" role="alert">
+        <i class="bi bi-info-circle-fill me-2 fs-4"></i>
+        <div>
+            <strong>Shopping as Guest</strong>
+            <span class="d-block">Your cart is saved for this session. <a asp-area="Identity" asp-page="/Account/Login" class="alert-link">Log in</a> to save your cart permanently or proceed to checkout.</span>
+        </div>
+    </div>
+}
 
 @if (Model.ShoppingCartList != null && Model.ShoppingCartList.Any())
 {
@@ -77,7 +92,16 @@
                     </div>
                     <div class="d-grid gap-2">
                         <a asp-area="Customer" asp-controller="Home" asp-action="Index" class="btn btn-outline-primary">Continue Shopping</a>
-                        <a asp-action="Summary" asp-controller="Cart" class="btn btn-primary w-100">Proceed to Checkout</a>
+                        @if (isGuest)
+                        {
+                            <a asp-area="Identity" asp-page="/Account/Login" asp-route-returnUrl="@Url.Action("Summary", "Cart", new { area = "Customer" })" class="btn btn-primary w-100">
+                                <i class="bi bi-lock-fill"></i> Log In to Checkout
+                            </a>
+                        }
+                        else
+                        {
+                            <a asp-action="Summary" asp-controller="Cart" class="btn btn-primary w-100">Proceed to Checkout</a>
+                        }
                     </div>
                 </div>
             </div>

@@ -1,0 +1,188 @@
+@page
+@model OrdersModel
+@{
+    ViewData["Title"] = "Orders";
+    ViewData["ActivePage"] = ManageNavPages.Orders;
+}
+
+<style>
+    .product-card-link {
+        transition: all 0.2s ease-in-out;
+    }
+    .product-card-link:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+        border-color: #0d6efd !important;
+    }
+    .product-card-link:hover h6 {
+        color: #0d6efd;
+    }
+</style>
+
+<partial name="_StatusMessage" for="StatusMessage" />
+
+<h3>@ViewData["Title"]</h3>
+
+@if (Model.Orders != null && Model.Orders.Any())
+{
+    <div class="row">
+        @foreach (var order in Model.Orders)
+        {
+            <div class="col-12 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h5 class="mb-1">Order #@order.Id</h5>
+                                <small class="text-muted">Placed on @order.OrderDate.ToString("MMMM dd, yyyy 'at' HH:mm")</small>
+                            </div>
+                            <div class="col-md-6 text-md-end">
+                                <div class="mb-1">
+                                    <small class="text-muted me-2">Order Status:</small>
+                                    <span class="badge @GetStatusBadgeClass(order.OrderStatus)">@order.OrderStatus</span>
+                                </div>
+                                <div>
+                                    <small class="text-muted me-2">Payment Status:</small>
+                                    <span class="badge @GetPaymentStatusBadgeClass(order.PaymentStatus)">@FormatPaymentStatus(order.PaymentStatus)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Items Section -->
+                        @if (order.OrderDetails != null && order.OrderDetails.Any())
+                        {
+                            <h6 class="mb-3">Items</h6>
+                            <div class="row mb-4">
+                                @foreach (var item in order.OrderDetails)
+                                {
+                                    <div class="col-12 mb-3">
+                                        @if (item.Product != null)
+                                        {
+                                            <a asp-area="Customer" asp-controller="Home" asp-action="Details" asp-route-productId="@item.Product.ProductId"
+                                               class="card border text-decoration-none text-reset product-card-link">
+                                                <div class="card-body p-3">
+                                                    <div class="d-flex align-items-center gap-3">
+                                                        <img src="@(item.Product.ImageUrl ?? "/images/product/placeholder.png")"
+                                                             class="rounded flex-shrink-0"
+                                                             style="width: 80px; height: 80px; object-fit: cover;"
+                                                             alt="@item.Product.ProductName" />
+                                                        <div class="flex-grow-1">
+                                                            <h6 class="mb-1" title="@item.Product.ProductName">
+                                                                @item.Product.ProductName
+                                                            </h6>
+                                                            <small class="text-muted d-block mb-2">@item.Product.Category?.Name</small>
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <span class="text-muted">Qty: @item.Count × @item.Price.ToString("C2", new System.Globalization.CultureInfo("en-US"))</span>
+                                                                <strong>@((item.Price * item.Count).ToString("C2", new System.Globalization.CultureInfo("en-US")))</strong>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <div class="card border">
+                                                <div class="card-body p-3">
+                                                    <small class="text-muted">Product no longer available</small>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        <hr class="my-3" />
+
+                        <!-- Details Section -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="mb-3">Shipping Information</h6>
+                                <p class="mb-1">
+                                    <strong>@order.Name</strong><br />
+                                    @order.StreetAddress<br />
+                                    @order.City, @order.State @order.PostalCode<br />
+                                    @order.Country
+                                </p>
+                                <p class="mb-0">
+                                    <strong>Phone:</strong> @order.PhoneNumber
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="mb-3">Order Details</h6>
+                                <p class="mb-1">
+                                    <strong>Total:</strong> <span class="fs-5">@order.OrderTotal.ToString("C2", new System.Globalization.CultureInfo("en-US"))</span>
+                                </p>
+                                @if (!string.IsNullOrEmpty(order.TrackingNumber))
+                                {
+                                    <p class="mb-1">
+                                        <strong>Tracking:</strong> @order.Carrier - @order.TrackingNumber
+                                    </p>
+                                }
+                                @if (order.ShippingDate != DateTime.MinValue)
+                                {
+                                    <p class="mb-1">
+                                        <strong>Shipped:</strong> @order.ShippingDate.ToString("MMMM dd, yyyy")
+                                    </p>
+                                }
+                                @if (!string.IsNullOrEmpty(order.PrintifyOrderId))
+                                {
+                                    <p class="mb-0">
+                                        <small class="text-muted">Printify Order ID: @order.PrintifyOrderId</small>
+                                    </p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="alert alert-info">
+        <h4 class="alert-heading">No orders yet</h4>
+        <p>You haven't placed any orders yet. Start shopping to see your orders here!</p>
+        <hr>
+        <a asp-area="Customer" asp-controller="Home" asp-action="Index" class="btn btn-primary">Start Shopping</a>
+    </div>
+}
+
+@functions {
+    string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Approved" => "bg-success",
+            "InProcess" => "bg-primary",
+            "Pending" => "bg-warning",
+            "Shipped" => "bg-info",
+            "Cancelled" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    string GetPaymentStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Approved" => "bg-success",
+            "ApprovedForDelayedPayment" => "bg-info",
+            "Pending" => "bg-warning",
+            "Rejected" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    string FormatPaymentStatus(string status)
+    {
+        return status switch
+        {
+            "ApprovedForDelayedPayment" => "Delayed Payment",
+            _ => status
+        };
+    }
+}

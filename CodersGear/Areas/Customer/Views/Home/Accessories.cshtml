@@ -27,37 +27,48 @@ else
         @foreach (var product in Model)
         {
             <div class="col-lg-3 col-sm-6">
-                <a asp-action="Details" asp-route-productId="@product.ProductId" class="text-decoration-none product-card-link d-block">
-                    <div class="card mb-3 h-100 border-0 shadow-sm">
+                <div class="card mb-3 h-100 border-0 shadow-sm">
+                    <a asp-action="Details" asp-route-productId="@product.ProductId" class="text-decoration-none">
                         <img src="@product.ImageUrl" class="card-img-top rounded-top" style="object-fit: cover; width: 100%; height: 250px;"/>
-                        <div class="card-body">
-                            @{
-                                var description = product.Description ?? "";
-                                var maxLength = 100;
-                                if (description.Length > maxLength)
-                                {
-                                    description = description.Substring(0, maxLength) + "...";
-                                }
+                    </a>
+                    <div class="card-body">
+                        @{
+                            var description = product.Description ?? "";
+                            var maxLength = 100;
+                            if (description.Length > maxLength)
+                            {
+                                description = description.Substring(0, maxLength) + "...";
                             }
-                            <p class="card-text text-muted small mb-2">@Html.Raw(description)</p>
+                        }
+                        <p class="card-text text-muted small mb-2">@Html.Raw(description)</p>
+                    </div>
+                    <div class="card-body mt-auto">
+                        <div class="mb-2">
+                            <span class="h5 text-white fw-bold">$@product.Price.ToString("F2")</span>
+                            @if (product.ListPrice > product.Price)
+                            {
+                                <span class="text-decoration-line-through text-danger ms-2 small">$@product.ListPrice.ToString("F2")</span>
+                            }
                         </div>
-                        <div class="card-body mt-auto">
-                            <div class="mb-2">
-                                <span class="h5 text-primary fw-bold">$@product.Price.ToString("F2")</span>
-                                @if (product.ListPrice > product.Price)
-                                {
-                                    <span class="text-decoration-line-through text-muted ms-2 small">$@product.ListPrice.ToString("F2")</span>
-                                }
-                            </div>
-                            <div class="d-grid gap-2">
-                                <span class="btn btn-primary btn-sm">See Details</span>
-                                <a asp-action="BuyNow" asp-route-productId="@product.ProductId" class="btn btn-success btn-sm"
-                                   onclick="event.stopPropagation()">Buy Now</a>
-                            </div>
+                        <div class="d-grid gap-2">
+                            <a asp-action="Details" asp-route-productId="@product.ProductId" class="btn btn-primary py-2 fs-6">See Details</a>
+                            <button type="button" class="btn btn-success py-2 fs-5 quick-buy-btn"
+                               data-product-id="@product.ProductId"
+                               data-product-name="@product.ProductName"
+                               data-price="@product.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
+                               data-image-url="@product.ImageUrl"
+                               data-has-variants="@(product.IsPrintifyProduct && !string.IsNullOrEmpty(product.PrintifyOptionsData) ? "true" : "false")"
+                               data-variant-data="@product.PrintifyVariantData"
+                               data-options-data="@product.PrintifyOptionsData">
+                                Buy Now
+                            </button>
                         </div>
                     </div>
-                </a>
+                </div>
             </div>
         }
     </div>
 }
+
+<!-- Quick Buy Modal -->
+<partial name="~/Views/Shared/_QuickBuyModal.cshtml" />

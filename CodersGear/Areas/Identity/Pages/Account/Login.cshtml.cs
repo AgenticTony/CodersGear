@@ -3,6 +3,7 @@
 #nullable disable
 
 using CodersGear.Models;
+using CodersGear.DataAccess.Repository.IRepository;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -22,11 +23,14 @@ namespace CodersGear.Areas.Identity.Pages.Account
     {
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ILogger<LoginModel> _logger;
+        private readonly IUnitOfWork _unitOfWork;
+        private const string SessionKeyId = "GuestCartId";
 
-        public LoginModel(SignInManager<ApplicationUser> signInManager, ILogger<LoginModel> logger)
+        public LoginModel(SignInManager<ApplicationUser> signInManager, ILogger<LoginModel> logger, IUnitOfWork unitOfWork)
         {
             _signInManager = signInManager;
             _logger = logger;
+            _unitOfWork = unitOfWork;
         }
 
         /// <summary>
@@ -116,6 +120,25 @@ namespace CodersGear.Areas.Identity.Pages.Account
                 if (result.Succeeded)
                 {
                     _logger.LogInformation("User logged in.");
+
+                    // Migrate session cart to user cart
+                    string sessionId = HttpContext.Session.GetString(SessionKeyId);
+                    if (!string.IsNullOrEmpty(sessionId))
+                    {
+                        var user = await _signInManager.UserManager.GetUserAsync(User);
+                        if (user != null)
+                        {
+                            int itemsMerged = _unitOfWork.ShoppingCart.MergeSessionCartToUserCart(sessionId, user.Id);
+                            if (itemsMerged > 0)
+                            {
+                                _logger.LogInformation($"Merged {itemsMerged} items from session cart to user {user.Id}");
+                                TempData["success"] = $"Your cart has been restored with {itemsMerged} item(s)";
+                            }
+                            // Clear session ID after migration
+                            HttpContext.Session.Remove(SessionKeyId);
+                        }
+                    }
+
                     return LocalRedirect(returnUrl);
                 }
                 if (result.RequiresTwoFactor)

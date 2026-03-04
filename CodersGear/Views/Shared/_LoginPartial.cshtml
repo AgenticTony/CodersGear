@@ -10,6 +10,8 @@
 @{
     int cartCount = 0;
     string userName = "User";
+    const string SessionKeyId = "GuestCartId";
+
     if (SignInManager.IsSignedIn(User))
     {
         var claimsIdentity = (ClaimsIdentity)User.Identity;
@@ -19,6 +21,15 @@
             cartCount = UnitOfWork.ShoppingCart.GetAll(u => u.ApplicationUserId == userId).Count();
             var applicationUser = UnitOfWork.ApplicationUser.Get(u => u.Id == userId);
             userName = applicationUser?.Name ?? UserManager.GetUserName(User);
+        }
+    }
+    else
+    {
+        // Guest user - check session cart
+        string sessionId = Context.Session.GetString(SessionKeyId);
+        if (!string.IsNullOrEmpty(sessionId))
+        {
+            cartCount = UnitOfWork.ShoppingCart.GetBySessionId(sessionId).Count();
         }
     }
 }
@@ -38,6 +49,11 @@
             </a>
         </li>
         <li class="nav-item">
+            <a class="nav-link text-light" asp-area="Identity" asp-page="/Account/Manage/Orders" title="My Orders">
+                <i class="bi bi-bag"></i> My Orders
+            </a>
+        </li>
+        <li class="nav-item">
             <a id="manage" class="nav-link text-light" asp-area="Identity" asp-page="/Account/Manage/Index" title="Manage">Hello @userName!</a>
         </li>
         <li class="nav-item">
@@ -48,6 +64,17 @@
     }
     else
     {
+        <li class="nav-item">
+            <a class="nav-link text-light position-relative" asp-area="Customer" asp-controller="Cart" asp-action="Index">
+                <i class="bi bi-cart3"></i>
+                @if (cartCount > 0)
+                {
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                        @cartCount
+                    </span>
+                }
+            </a>
+        </li>
         <li class="nav-item">
             <a class="nav-link text-light" id="register" asp-area="Identity" asp-page="/Account/Register">Register</a>
         </li>

@@ -18,10 +18,12 @@ namespace CodersGear.Models
         public int Count { get; set; }
         [NotMapped]
         public decimal Price { get; set; }
-        public string ApplicationUserId { get; set; }
+        // For guest carts - either ApplicationUserId OR SessionId will be populated (not both)
+        public string? ApplicationUserId { get; set; }
+        public string? SessionId { get; set; }
         [ForeignKey("ApplicationUserId")]
         [ValidateNever]
-        public ApplicationUser ApplicationUser { get; set; }
+        public ApplicationUser? ApplicationUser { get; set; }
         public decimal OrderTotal { get; set; }
 
 

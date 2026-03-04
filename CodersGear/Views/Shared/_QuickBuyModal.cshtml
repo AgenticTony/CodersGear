@@ -1,0 +1,285 @@
+<!-- Quick Buy Modal -->
+<div class="modal fade" id="quickBuyModal" tabindex="-1" aria-labelledby="quickBuyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quickBuyModalLabel">Quick Buy</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-4">
+                        <img id="quickBuyImage" src="" alt="Product" class="rounded img-fluid" style="max-height: 150px; object-fit: cover;" />
+                    </div>
+                    <div class="col-8">
+                        <h6 id="quickBuyProductName" class="mb-1"></h6>
+                        <p id="quickBuyPrice" class="fw-bold mb-0 fs-5"></p>
+                    </div>
+                </div>
+
+                <div id="quickBuyVariantOptions" class="mb-3"></div>
+
+                <div class="d-flex align-items-center gap-3">
+                    <div>
+                        <label class="form-label fw-bold mb-0">Quantity:</label>
+                    </div>
+                    <div class="input-group flex-nowrap" style="width: 150px;">
+                        <button class="btn btn-outline-secondary" type="button" onclick="quickBuyDecreaseQty(); event.stopPropagation();">−</button>
+                        <input type="number" class="form-control text-center px-0" id="quickBuyQuantity" value="1" min="1" max="99" style="width: 50px; -moz-appearance: textfield;">
+                        <button class="btn btn-outline-secondary" type="button" onclick="quickBuyIncreaseQty(); event.stopPropagation();">+</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="quickBuyAddToCart()">
+                    <i class="bi bi-cart-plus"></i> Add to Cart
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentQuickBuyProduct = null;
+    let currentQuickBuyVariants = [];
+
+    // Set up event listeners for quick buy buttons (use event delegation)
+    document.addEventListener('click', function(e) {
+        const button = e.target.closest('.quick-buy-btn');
+        if (button) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const productId = button.getAttribute('data-product-id');
+            const productName = button.getAttribute('data-product-name');
+            const price = button.getAttribute('data-price');
+            const imageUrl = button.getAttribute('data-image-url');
+            const hasVariants = button.getAttribute('data-has-variants');
+            const variantData = button.getAttribute('data-variant-data');
+            const optionsData = button.getAttribute('data-options-data');
+
+            openQuickBuyModal(productId, productName, price, imageUrl, hasVariants, variantData, optionsData);
+        }
+    });
+
+    function openQuickBuyModal(productId, productName, price, imageUrl, hasVariants, variantData, optionsData) {
+        currentQuickBuyProduct = productId;
+
+        // Show modal first
+        const modalEl = document.getElementById('quickBuyModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+
+        // Then populate content
+        setTimeout(() => {
+            // Set product info
+            document.getElementById('quickBuyProductName').textContent = productName;
+            document.getElementById('quickBuyPrice').textContent = '$' + price;
+            document.getElementById('quickBuyImage').src = imageUrl;
+            document.getElementById('quickBuyQuantity').value = 1;
+
+            const variantOptionsDiv = document.getElementById('quickBuyVariantOptions');
+            variantOptionsDiv.innerHTML = '';
+
+            // Handle null/undefined data
+            if (!variantData || variantData === 'null' || variantData === '') variantData = '[]';
+            if (!optionsData || optionsData === 'null' || optionsData === '') optionsData = '[]';
+
+            console.log('=== Quick Buy Debug ===');
+            console.log('Product ID:', productId);
+            console.log('Product Name:', productName);
+            console.log('Has variants:', hasVariants, typeof hasVariants);
+            console.log('Variant data:', variantData?.substring(0, 100) + '...');
+            console.log('Options data:', optionsData?.substring(0, 100) + '...');
+
+            // Check for variants - hasVariants comes from attribute as string 'true' or 'false'
+            const hasVariantsBool = hasVariants === 'true' || hasVariants === true;
+            console.log('Has variants (bool):', hasVariantsBool);
+
+            if (hasVariantsBool && optionsData && optionsData !== '[]' && optionsData !== '') {
+                console.log('Attempting to parse variant data...');
+
+                // Parse variant and options data
+                try {
+                    currentQuickBuyVariants = JSON.parse(variantData);
+                    const options = JSON.parse(optionsData);
+
+                    console.log('Parsed variants:', currentQuickBuyVariants?.length, 'variants');
+                    console.log('Parsed options:', options?.length, 'options');
+
+                    // Check if we have valid data
+                    if (!Array.isArray(currentQuickBuyVariants) || !Array.isArray(options)) {
+                        console.warn('Variant or options data is not an array');
+                        variantOptionsDiv.innerHTML = '<p class="text-muted">No additional options for this product</p>';
+                    } else if (currentQuickBuyVariants.length === 0 || options.length === 0) {
+                        console.warn('Empty variants or options array');
+                        variantOptionsDiv.innerHTML = '<p class="text-muted">No additional options for this product</p>';
+                    } else {
+                        // Filter to only enabled variants
+                        const enabledVariants = currentQuickBuyVariants.filter(v => v.is_enabled);
+                        console.log('Enabled variants:', enabledVariants.length, 'variants');
+
+                        if (enabledVariants.length === 0) {
+                            variantOptionsDiv.innerHTML = '<p class="text-muted">No additional options for this product</p>';
+                            return;
+                        }
+
+                        // Build available option IDs set
+                        const availableOptionIds = new Set();
+                        enabledVariants.forEach(v => {
+                            if (Array.isArray(v.options)) {
+                                v.options.forEach(optId => availableOptionIds.add(optId));
+                            }
+                        });
+
+                        console.log('Available option IDs:', availableOptionIds);
+
+                        if (options && options.length > 0) {
+                            const selectElements = [];
+
+                            options.forEach((option, index) => {
+                                const availableValues = option.values.filter(v => availableOptionIds.has(v.id));
+
+                                if (availableValues.length > 0) {
+                                    const optionDiv = document.createElement('div');
+                                    optionDiv.className = 'mb-3';
+
+                                    const label = document.createElement('label');
+                                    label.className = 'form-label fw-bold';
+                                    label.textContent = option.name + ':';
+                                    optionDiv.appendChild(label);
+
+                                    const select = document.createElement('select');
+                                    select.className = 'form-select quick-buy-variant-select';
+                                    select.dataset.optionIndex = index;
+                                    select.dataset.optionName = option.name;
+
+                                    availableValues.forEach((value, vIndex) => {
+                                        const optionEl = document.createElement('option');
+                                        optionEl.value = value.id;
+                                        optionEl.textContent = value.title;
+                                        if (vIndex === 0) optionEl.selected = true;
+                                        select.appendChild(optionEl);
+                                    });
+
+                                    select.addEventListener('change', updateQuickBuyVariant);
+                                    optionDiv.appendChild(select);
+                                    variantOptionsDiv.appendChild(optionDiv);
+                                    selectElements.push(select);
+                                }
+                            });
+
+                            console.log('Created', selectElements.length, 'select elements');
+
+                            // Initialize with first variant
+                            if (selectElements.length > 0) {
+                                updateQuickBuyVariant();
+                            } else {
+                                variantOptionsDiv.innerHTML = '<p class="text-muted">No additional options for this product</p>';
+                            }
+                        } else {
+                            variantOptionsDiv.innerHTML = '<p class="text-muted">No additional options for this product</p>';
+                        }
+                    }
+
+                } catch (e) {
+                    console.error('Error parsing variant data:', e);
+                    console.error('Variant data string:', variantData?.substring(0, 200));
+                    console.error('Options data string:', optionsData?.substring(0, 200));
+                    variantOptionsDiv.innerHTML = '<p class="text-muted">No additional options for this product</p>';
+                }
+            } else {
+                console.log('No variants to display - condition not met');
+                console.log('hasVariantsBool:', hasVariantsBool);
+                console.log('optionsData:', optionsData?.substring(0, 50));
+                variantOptionsDiv.innerHTML = '<p class="text-muted">No additional options for this product</p>';
+            }
+        }, 50); // Small delay to ensure modal is visible
+    }
+
+    function updateQuickBuyVariant() {
+        if (!currentQuickBuyVariants || currentQuickBuyVariants.length === 0) return;
+
+        const selectElements = document.querySelectorAll('.quick-buy-variant-select');
+        const selectedOptions = Array.from(selectElements).map(s => parseInt(s.value));
+
+        // Find matching variant
+        const enabledVariants = currentQuickBuyVariants.filter(v => v.is_enabled);
+        const matchingVariant = enabledVariants.find(v => {
+            if (v.options.length !== selectedOptions.length) return false;
+            return v.options.every(optId => selectedOptions.includes(optId));
+        });
+
+        if (matchingVariant) {
+            const priceInDollars = matchingVariant.price / 100;
+            document.getElementById('quickBuyPrice').textContent = '$' + priceInDollars.toFixed(2);
+        }
+    }
+
+    function quickBuyIncreaseQty() {
+        const input = document.getElementById('quickBuyQuantity');
+        const currentValue = parseInt(input.value) || 1;
+        if (currentValue < 99) {
+            input.value = currentValue + 1;
+        }
+    }
+
+    function quickBuyDecreaseQty() {
+        const input = document.getElementById('quickBuyQuantity');
+        const currentValue = parseInt(input.value) || 1;
+        if (currentValue > 1) {
+            input.value = currentValue - 1;
+        }
+    }
+
+    function quickBuyAddToCart() {
+        const quantity = parseInt(document.getElementById('quickBuyQuantity').value);
+        const selectElements = document.querySelectorAll('.quick-buy-variant-select');
+        const priceText = document.getElementById('quickBuyPrice').textContent.replace('$', '');
+
+        // Prepare form data
+        const formData = new FormData();
+        formData.append('ProductId', currentQuickBuyProduct);
+        formData.append('Count', quantity);
+        formData.append('Price', priceText);
+
+        // Add variant info if present
+        if (selectElements.length > 0) {
+            const selectedOptions = Array.from(selectElements).map(s => parseInt(s.value));
+
+            const enabledVariants = currentQuickBuyVariants.filter(v => v.is_enabled);
+            const matchingVariant = enabledVariants.find(v => {
+                if (v.options.length !== selectedOptions.length) return false;
+                return v.options.every(optId => selectedOptions.includes(optId));
+            });
+
+            if (matchingVariant) {
+                formData.append('variantId', matchingVariant.id);
+                formData.append('variantPrice', matchingVariant.price);
+            }
+        }
+
+        // Submit to server
+        fetch('/Customer/Home/Details', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (response.redirected) {
+                // Close modal and redirect
+                bootstrap.Modal.getInstance(document.getElementById('quickBuyModal')).hide();
+                window.location.href = response.url;
+            } else if (response.ok) {
+                // Close modal and refresh cart
+                bootstrap.Modal.getInstance(document.getElementById('quickBuyModal')).hide();
+                location.reload();
+            } else {
+                console.error('Failed to add to cart');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+</script>

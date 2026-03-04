@@ -1,35 +1,180 @@
-@model int
+@model CodersGear.Models.OrderHeader
+@using CodersGear.DataAccess.Repository.IRepository
+@inject IUnitOfWork UnitOfWork
 @{
     ViewData["Title"] = "Order Confirmation";
+
+    // Get order details for this order
+    var orderDetails = UnitOfWork.OrderDetail.GetAll(od => od.OrderHeaderId == Model.Id, includeProperties: "Product").ToList();
 }
 
 <div class="container py-5">
     <div class="row justify-content-center">
-        <div class="col-md-6 text-center">
+        <div class="col-md-10">
             <div class="card shadow">
                 <div class="card-body py-5">
-                    <i class="bi bi-check-circle-fill text-success display-1"></i>
-                    <h2 class="mt-4">Order Placed Successfully!</h2>
-                    <p class="text-muted">Thank you for your purchase.</p>
+                    <div class="text-center mb-5">
+                        <i class="bi bi-check-circle-fill text-success display-1"></i>
+                        <h2 class="mt-4">Order Placed Successfully!</h2>
+                        <p class="text-muted">Thank you for your purchase.</p>
 
-                    <div class="alert alert-info mt-4">
-                        <strong>Order ID:</strong> #@Model
+                        <div class="alert alert-success d-inline-block mt-3">
+                            <strong>Order ID:</strong> #@Model.Id
+                        </div>
                     </div>
 
-                    <p class="small text-muted mb-4">
-                        You will receive a confirmation email shortly with your order details.
-                    </p>
+                    <!-- Order Summary Card -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">Order Summary</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-muted mb-3">Shipping Information</h6>
+                                    <p class="mb-1">
+                                        <strong>@Model.Name</strong><br />
+                                        @Model.StreetAddress<br />
+                                        @Model.City, @Model.State @Model.PostalCode<br />
+                                        @Model.Country
+                                    </p>
+                                    <p class="mb-0">
+                                        <strong>Phone:</strong> @Model.PhoneNumber
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="text-muted mb-3">Order Information</h6>
+                                    <p class="mb-1">
+                                        <strong>Order Date:</strong> @Model.OrderDate.ToString("MMMM dd, yyyy HH:mm")
+                                    </p>
+                                    <p class="mb-1">
+                                        <strong>Order Status:</strong>
+                                        <span class="badge @GetStatusBadgeClass(Model.OrderStatus)">@Model.OrderStatus</span>
+                                    </p>
+                                    <p class="mb-0">
+                                        <strong>Payment Status:</strong>
+                                        <span class="badge @GetPaymentStatusBadgeClass(Model.PaymentStatus)">@Model.PaymentStatus</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                    <div class="d-grid gap-2">
-                        <a asp-area="Customer" asp-controller="Home" asp-action="Index" class="btn btn-primary">
-                            Continue Shopping
-                        </a>
-                        <a asp-area="Customer" asp-controller="Cart" asp-action="Index" class="btn btn-outline-secondary">
-                            View Cart
-                        </a>
+                    <!-- Order Items -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">Order Items</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 50%">Product</th>
+                                            <th style="width: 15%">Price</th>
+                                            <th style="width: 15%">Quantity</th>
+                                            <th style="width: 20%" class="text-end">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @if (orderDetails != null && orderDetails.Any())
+                                        {
+                                            @foreach (var item in orderDetails)
+                                            {
+                                                <tr>
+                                                    <td>
+                                                        @if (item.Product != null)
+                                                        {
+                                                            <div class="d-flex align-items-center">
+                                                                <img src="@(item.Product.ImageUrl ?? "/images/product/placeholder.png")"
+                                                                     class="rounded me-2"
+                                                                     style="width: 50px; height: 50px; object-fit: cover;"
+                                                                     alt="@item.Product.ProductName" />
+                                                                <div>
+                                                                    <h6 class="mb-0">@item.Product.ProductName</h6>
+                                                                    <small class="text-muted">@item.Product.Category?.Name</small>
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span>Product not available</span>
+                                                        }
+                                                    </td>
+                                                    <td>@item.Price.ToString("C2", new System.Globalization.CultureInfo("en-US"))</td>
+                                                    <td>@item.Count</td>
+                                                    <td class="text-end">
+                                                        <strong>@((item.Price * item.Count).ToString("C2", new System.Globalization.CultureInfo("en-US")))</strong>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <tr>
+                                                <td colspan="4" class="text-center text-muted">No items found</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                    <tfoot class="table-light">
+                                        <tr>
+                                            <td colspan="3" class="text-end">
+                                                <strong>Total:</strong>
+                                            </td>
+                                            <td class="text-end">
+                                                <strong class="fs-5">@Model.OrderTotal.ToString("C2", new System.Globalization.CultureInfo("en-US"))</strong>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="text-center">
+                        <p class="text-muted mb-3">
+                            You will receive a confirmation email shortly with your order details.
+                            You can also view your order history in your account.
+                        </p>
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                            <a asp-area="Customer" asp-controller="Home" asp-action="Index" class="btn btn-primary">
+                                Continue Shopping
+                            </a>
+                            <a asp-area="Identity" asp-page="/Account/Manage/Orders" class="btn btn-outline-primary">
+                                View My Orders
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+@functions {
+    string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Approved" => "bg-success",
+            "InProcess" => "bg-primary",
+            "Pending" => "bg-warning",
+            "Shipped" => "bg-info",
+            "Cancelled" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    string GetPaymentStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Approved" => "bg-success",
+            "ApprovedForDelayedPayment" => "bg-info",
+            "Pending" => "bg-warning",
+            "Rejected" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+}

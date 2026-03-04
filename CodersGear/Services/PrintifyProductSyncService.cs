@@ -199,13 +199,53 @@ namespace CodersGear.Services
 
         /// <summary>
         /// Intelligently maps a Printify product to the appropriate category based on title, description, and blueprint
+        /// Uses priority-based matching where more specific product types override generic keywords
         /// </summary>
         private int MapProductToCategory(Utility.PrintifyProduct product)
         {
             // Combine title and description for matching
             string searchText = $"{product.Title} {product.Description}".ToLower();
 
-            // Score each category by counting keyword matches
+            // Priority-based category checking (highest priority first)
+            // More specific keywords are checked first to avoid false positives
+
+            // Priority 1: Hoodies - check FIRST as "hoodie" is very specific
+            if (ContainsAnyKeyword(searchText, new[] { "hoodie", "pullover hoodie", "zip hoodie", "fleece hoodie" }))
+            {
+                _logger.LogInformation($"Product '{product.Title}' categorized as Hoodie (2) - 'hoodie' keyword match");
+                return 2;
+            }
+
+            // Priority 2: T-Shirts - use specific t-shirt patterns
+            if (ContainsAnyKeyword(searchText, new[] { "t-shirt", "tshirt", "classic tee", "premium tee" }))
+            {
+                _logger.LogInformation($"Product '{product.Title}' categorized as T-Shirt (1) - specific t-shirt keyword match");
+                return 1;
+            }
+
+            // Priority 3: Sweatshirts (without "hoodie" explicitly mentioned) - can include crewnecks
+            if (ContainsAnyKeyword(searchText, new[] { "sweatshirt", "crewneck", "pullover" }) &&
+                !ContainsAnyKeyword(searchText, new[] { "hoodie" }))
+            {
+                _logger.LogInformation($"Product '{product.Title}' categorized as Hoodie (2) - sweatshirt/crewneck match");
+                return 2;
+            }
+
+            // Priority 4: Mugs - only if not already matched as apparel
+            if (ContainsAnyKeyword(searchText, new[] { "mug", "coffee mug", "ceramic mug", "travel mug", "steamer" }))
+            {
+                _logger.LogInformation($"Product '{product.Title}' categorized as Mug (3) - specific mug keyword match");
+                return 3;
+            }
+
+            // Priority 5: Accessories - check last as they have many generic keywords
+            if (ContainsAnyKeyword(searchText, new[] { "hat", "cap", "beanie", "tote bag", "phone case", "sticker", "sticker sheet" }))
+            {
+                _logger.LogInformation($"Product '{product.Title}' categorized as Accessory (4) - accessory keyword match");
+                return 4;
+            }
+
+            // Fallback: Use the original scoring system for edge cases
             var categoryScores = new Dictionary<int, int>();
             foreach (var categoryPair in CategoryKeywords)
             {
@@ -232,18 +272,29 @@ namespace CodersGear.Services
             if (categoryScores.Any())
             {
                 int bestCategoryId = categoryScores.OrderByDescending(x => x.Value).First().Key;
-                _logger.LogInformation($"Product '{product.Title}' categorized as {bestCategoryId} with {categoryScores[bestCategoryId]} keyword matches");
+                _logger.LogInformation($"Product '{product.Title}' categorized as {bestCategoryId} with {categoryScores[bestCategoryId]} keyword matches (fallback)");
                 return bestCategoryId;
             }
-
-            // If no match found, check blueprint ID for known patterns
-            // (You can add specific blueprint IDs here if needed)
-            // For example, some Printify providers use specific blueprint IDs for certain product types
 
             // Default: return first category
             int defaultCategoryId = _unitOfWork.Category.GetAll().OrderBy(c => c.CategoryId).FirstOrDefault()?.CategoryId ?? 1;
             _logger.LogWarning($"No category match found for product '{product.Title}'. Defaulting to category {defaultCategoryId}");
             return defaultCategoryId;
+        }
+
+        /// <summary>
+        /// Helper method to check if search text contains any of the specified keywords
+        /// </summary>
+        private bool ContainsAnyKeyword(string searchText, string[] keywords)
+        {
+            foreach (string keyword in keywords)
+            {
+                if (searchText.Contains(keyword))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

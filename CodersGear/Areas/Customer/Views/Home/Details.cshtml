@@ -110,8 +110,8 @@
                 <div class="card mb-4 border-0 bg-light">
                     <div class="card-body">
                         <div class="d-flex align-items-baseline gap-2">
-                            <span class="text-info text-decoration-line-through">$@Model.Product?.ListPrice.ToString("F2")</span>
-                            <span class="display-6 fw-bold text-primary">$@Model.Product?.Price.ToString("F2")</span>
+                            <span class="text-danger text-decoration-line-through">$@Model.Product?.ListPrice.ToString("F2")</span>
+                            <span class="display-6 fw-bold text-white">$@Model.Product?.Price.ToString("F2")</span>
                             @{
                                 decimal savings = 0m;
                                 if (Model.Product != null)
@@ -298,13 +298,13 @@
                                     </tr>
                                     <tr>
                                         <td>50-100 items</td>
-                                        <td class="text-end text-success fw-bold">$@Model.Product?.Price50.ToString("F2")</td>
-                                        <td class="text-end text-success">$@savings50.ToString("F2")</td>
+                                        <td class="text-end fw-bold">$@Model.Product?.Price50.ToString("F2")</td>
+                                        <td class="text-end">$@savings50.ToString("F2")</td>
                                     </tr>
                                     <tr>
                                         <td>100+ items</td>
-                                        <td class="text-end text-success fw-bold">$@Model.Product?.Price100.ToString("F2")</td>
-                                        <td class="text-end text-success">$@savings100.ToString("F2")</td>
+                                        <td class="text-end fw-bold">$@Model.Product?.Price100.ToString("F2")</td>
+                                        <td class="text-end">$@savings100.ToString("F2")</td>
                                     </tr>
                                 </tbody>
                             </table>

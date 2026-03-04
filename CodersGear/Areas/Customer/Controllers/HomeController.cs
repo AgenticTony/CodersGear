@@ -10,9 +10,36 @@ using Microsoft.AspNetCore.Mvc;
 namespace CodersGear.Areas.Customer.Controllers
 {
     [Area("Customer")]
-    public class 
-        HomeController : Controller
+    public class HomeController : Controller
     {
+        private const string SessionKeyId = "GuestCartId";
+
+        private string GetOrSetSessionId()
+        {
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                // Logged in users don't use session-based cart
+                return null;
+            }
+
+            string sessionId = HttpContext.Session.GetString(SessionKeyId);
+            if (string.IsNullOrEmpty(sessionId))
+            {
+                sessionId = Guid.NewGuid().ToString();
+                HttpContext.Session.SetString(SessionKeyId, sessionId);
+            }
+            return sessionId;
+        }
+
+        private string GetUserId()
+        {
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                var claimsIdentity = (ClaimsIdentity)User.Identity;
+                return claimsIdentity.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            }
+            return null;
+        }
         private readonly ILogger<HomeController> _logger;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPrintifyProductSyncService _printifySyncService;
@@ -71,34 +98,56 @@ namespace CodersGear.Areas.Customer.Controllers
         [HttpPost]
         public IActionResult Details(ShoppingCart shoppingCart)
         {
-            // Check if user is authenticated
-            if (User.Identity == null || !User.Identity.IsAuthenticated)
+            var userId = GetUserId();
+            var sessionId = GetOrSetSessionId();
+
+            if (userId != null)
             {
-                // Not logged in - redirect to login with returnUrl back to product page
-                string returnUrl = $"/Customer/Home/Details/{shoppingCart.ProductId}";
-                return Redirect($"/Identity/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}");
-            }
+                // Logged in user
+                shoppingCart.ApplicationUserId = userId;
+                shoppingCart.SessionId = null;
 
-            var claimsIdentity = (ClaimsIdentity)User.Identity;
-            var userId = claimsIdentity.FindFirst(ClaimTypes.NameIdentifier).Value;
-            shoppingCart.ApplicationUserId = userId;
+                // Check if shopping cart already exists for this user and product
+                ShoppingCart cartFromDb = _unitOfWork.ShoppingCart.Get(
+                    u => u.ApplicationUserId == userId && u.ProductId == shoppingCart.ProductId,
+                    tracked: false);
 
-            // Check if shopping cart already exists for this user and product
-            // Using tracked: false so we don't accidentally auto-update without calling Update()
-            ShoppingCart cartFromDb = _unitOfWork.ShoppingCart.Get(
-                u => u.ApplicationUserId == userId && u.ProductId == shoppingCart.ProductId,
-                tracked: false);
-
-            if (cartFromDb != null)
-            {
-                // Shopping cart already exists, update the count
-                shoppingCart.Count += cartFromDb.Count;
-                _unitOfWork.ShoppingCart.Update(shoppingCart);
+                if (cartFromDb != null)
+                {
+                    // Shopping cart already exists, update the count
+                    shoppingCart.Count += cartFromDb.Count;
+                    shoppingCart.Id = cartFromDb.Id;
+                    _unitOfWork.ShoppingCart.Update(shoppingCart);
+                }
+                else
+                {
+                    // Shopping cart doesn't exist, add new entry
+                    _unitOfWork.ShoppingCart.Add(shoppingCart);
+                }
             }
             else
             {
-                // Shopping cart doesn't exist, add new entry
-                _unitOfWork.ShoppingCart.Add(shoppingCart);
+                // Guest user - use session-based cart
+                shoppingCart.SessionId = sessionId;
+                shoppingCart.ApplicationUserId = null;
+
+                // Get all session carts for this product
+                var sessionCarts = _unitOfWork.ShoppingCart.GetAll(
+                    u => u.SessionId == sessionId && u.ProductId == shoppingCart.ProductId);
+
+                if (sessionCarts.Any())
+                {
+                    // Session cart already exists, update the count
+                    var existingCart = sessionCarts.First();
+                    shoppingCart.Count += existingCart.Count;
+                    shoppingCart.Id = existingCart.Id;
+                    _unitOfWork.ShoppingCart.Update(shoppingCart);
+                }
+                else
+                {
+                    // Session cart doesn't exist, add new entry
+                    _unitOfWork.ShoppingCart.Add(shoppingCart);
+                }
             }
 
             _unitOfWork.Save();
@@ -109,39 +158,62 @@ namespace CodersGear.Areas.Customer.Controllers
 
         public IActionResult BuyNow(int productId)
         {
-            // Check if user is authenticated
-            if (User.Identity == null || !User.Identity.IsAuthenticated)
-            {
-                // Not logged in - redirect to login with returnUrl to this product
-                string returnUrl = $"/Customer/Home/Details/{productId}";
-                return Redirect($"/Identity/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}");
-            }
-
-            var claimsIdentity = (ClaimsIdentity)User.Identity;
-            var userId = claimsIdentity.FindFirst(ClaimTypes.NameIdentifier).Value;
-
-            // Check if shopping cart already exists for this user and product
-            ShoppingCart cartFromDb = _unitOfWork.ShoppingCart.Get(
-                u => u.ApplicationUserId == userId && u.ProductId == productId,
-                tracked: false);
+            var userId = GetUserId();
+            var sessionId = GetOrSetSessionId();
 
             ShoppingCart shoppingCart = new ShoppingCart
             {
                 ProductId = productId,
-                Count = 1,
-                ApplicationUserId = userId
+                Count = 1
             };
 
-            if (cartFromDb != null)
+            if (userId != null)
             {
-                // Shopping cart already exists, update the count
-                shoppingCart.Count += cartFromDb.Count;
-                _unitOfWork.ShoppingCart.Update(shoppingCart);
+                // Logged in user
+                shoppingCart.ApplicationUserId = userId;
+                shoppingCart.SessionId = null;
+
+                // Check if shopping cart already exists for this user and product
+                ShoppingCart cartFromDb = _unitOfWork.ShoppingCart.Get(
+                    u => u.ApplicationUserId == userId && u.ProductId == productId,
+                    tracked: false);
+
+                if (cartFromDb != null)
+                {
+                    // Shopping cart already exists, update the count
+                    shoppingCart.Count += cartFromDb.Count;
+                    shoppingCart.Id = cartFromDb.Id;
+                    _unitOfWork.ShoppingCart.Update(shoppingCart);
+                }
+                else
+                {
+                    // Shopping cart doesn't exist, add new entry
+                    _unitOfWork.ShoppingCart.Add(shoppingCart);
+                }
             }
             else
             {
-                // Shopping cart doesn't exist, add new entry
-                _unitOfWork.ShoppingCart.Add(shoppingCart);
+                // Guest user - use session-based cart
+                shoppingCart.SessionId = sessionId;
+                shoppingCart.ApplicationUserId = null;
+
+                // Get all session carts for this product
+                var sessionCarts = _unitOfWork.ShoppingCart.GetAll(
+                    u => u.SessionId == sessionId && u.ProductId == productId);
+
+                if (sessionCarts.Any())
+                {
+                    // Session cart already exists, update the count
+                    var existingCart = sessionCarts.First();
+                    shoppingCart.Count += existingCart.Count;
+                    shoppingCart.Id = existingCart.Id;
+                    _unitOfWork.ShoppingCart.Update(shoppingCart);
+                }
+                else
+                {
+                    // Session cart doesn't exist, add new entry
+                    _unitOfWork.ShoppingCart.Add(shoppingCart);
+                }
             }
 
             _unitOfWork.Save();
