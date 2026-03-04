@@ -25,11 +25,11 @@ jobs:
       - name: Publish
         run: dotnet publish CodersGear/CodersGear.csproj --configuration Release --output ./publish
 
-      - name: Deploy to SmarterASP
-        uses: talunzhang/web-deploy@v1
+      - name: Deploy to SmarterASP via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
-          website-name: ${{ secrets.SMARTASP_WEBSITE_NAME }}
-          server-computer-name: ${{ secrets.SMARTASP_SERVER_URL }}
-          server-username: ${{ secrets.SMARTASP_USERNAME }}
-          server-password: ${{ secrets.SMARTASP_PASSWORD }}
-          source-path: './publish'
+          server: ${{ secrets.SMARTASP_FTP_SERVER }}
+          username: ${{ secrets.SMARTASP_USERNAME }}
+          password: ${{ secrets.SMARTASP_PASSWORD }}
+          local-dir: ./publish/
+          server-dir: /wwwroot/
