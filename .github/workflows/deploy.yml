@@ -25,14 +25,27 @@ jobs:
       - name: Publish
         run: dotnet publish CodersGear/CodersGear.csproj --configuration Release --output ./publish
 
-      - name: Deploy to SmarterASP via FTPS
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-        with:
-          server: ${{ secrets.SMARTASP_FTP_SERVER }}
-          username: ${{ secrets.SMARTASP_USERNAME }}
-          password: ${{ secrets.SMARTASP_PASSWORD }}
-          local-dir: ./publish/
-          server-dir: /
-          port: 21
-          protocol: ftps
-          security: strict
+      - name: Install Web Deploy
+        shell: pwsh
+        run: |
+          choco install webdeploy -y
+
+      - name: Deploy to SmarterASP via Web Deploy
+        shell: pwsh
+        run: |
+          $sourcePath = "${{ github.workspace }}\publish"
+          $siteName = "anthonyforan-001-site1"
+          $computerName = "https://win6187.site4now.net:8172/MsDeploy.axd?site=$siteName"
+          $username = "${{ secrets.SMARTASP_USERNAME }}"
+          $password = "${{ secrets.SMARTASP_PASSWORD }}"
+
+          Write-Host "Deploying to SmarterASP..."
+
+          & "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe" `
+            -verb:sync `
+            -source:contentPath="$sourcePath" `
+            -dest:contentPath="$siteName",ComputerName="$computerName",UserName="$username",Password="$password",AuthType="Basic" `
+            -allowUntrusted `
+            -verbose
+
+          Write-Host "Deployment complete!"
