@@ -62,13 +62,49 @@ namespace CodersGear.Services
 
                 _logger.LogInformation($"Received {printifyProducts.Count} products from Printify API");
 
+                // Get all Printify product IDs from API
+                var printifyProductIds = printifyProducts.Select(p => p.Id).ToHashSet();
+
+                // Get all Printify products from local database
+                var localPrintifyProducts = _unitOfWork.Product.GetAll(p => p.IsPrintifyProduct).ToList();
+                var localPrintifyProductIds = localPrintifyProducts.Select(p => p.PrintifyProductId).ToHashSet();
+
+                // 1. Hide products that no longer exist in Printify (deleted)
+                var deletedProductIds = localPrintifyProductIds.Except(printifyProductIds);
+                foreach (var deletedId in deletedProductIds)
+                {
+                    var productToHide = localPrintifyProducts.FirstOrDefault(p => p.PrintifyProductId == deletedId);
+                    if (productToHide != null && productToHide.Visible)
+                    {
+                        productToHide.Visible = false;
+                        _unitOfWork.Product.Update(productToHide);
+                        _logger.LogInformation($"Hid deleted product: {productToHide.ProductName} (Printify ID: {deletedId}) - no longer in Printify");
+                    }
+                }
+
+                // 2. Hide products that are invisible in Printify
+                var invisiblePrintifyProducts = printifyProducts.Where(p => !p.Visible);
+                foreach (var invisibleProduct in invisiblePrintifyProducts)
+                {
+                    var localProduct = localPrintifyProducts.FirstOrDefault(p => p.PrintifyProductId == invisibleProduct.Id);
+                    if (localProduct != null && localProduct.Visible)
+                    {
+                        localProduct.Visible = false;
+                        _unitOfWork.Product.Update(localProduct);
+                        _logger.LogInformation($"Hid invisible product: {localProduct.ProductName} (Printify ID: {invisibleProduct.Id}) - marked invisible in Printify");
+                    }
+                }
+
+                // 3. Sync visible products (update existing or add new)
                 foreach (var printifyProduct in printifyProducts.Where(p => p.Visible))
                 {
                     _logger.LogInformation($"Syncing product: {printifyProduct.Title} (ID: {printifyProduct.Id})");
                     await SyncSingleProductAsync(printifyProduct.Id);
                 }
 
-                _logger.LogInformation($"=== Printify product sync completed. Processed {printifyProducts.Count} products. ===");
+                _unitOfWork.Save();
+
+                _logger.LogInformation($"=== Printify product sync completed. Processed {printifyProducts.Count} products, hid {deletedProductIds.Count()} deleted, hid {invisiblePrintifyProducts.Count()} invisible. ===");
             }
             catch (Exception ex)
             {
