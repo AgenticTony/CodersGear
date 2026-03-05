@@ -139,7 +139,8 @@ namespace CodersGear.Areas.Customer.Controllers
                     u => u.SessionId == sessionId &&
                          u.ProductId == shoppingCart.ProductId &&
                          u.Size == shoppingCart.Size &&
-                         u.Color == shoppingCart.Color);
+                         u.Color == shoppingCart.Color,
+                    tracked: false);
 
                 if (existingCart != null)
                 {
