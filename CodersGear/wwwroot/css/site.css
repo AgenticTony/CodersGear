@@ -52,5 +52,5 @@ body {
 }
 
 body {
-  padding-top: 56px; /* Add padding to account for fixed navbar */
+  padding-top: 80px; /* Add padding to account for fixed navbar + extra space for page titles */
 }
