@@ -59,7 +59,7 @@ jobs:
           foreach ($file in $files) {
             if (-not $file.PSIsContainer) {
               $relativePath = $file.FullName.Substring("${{ github.workspace }}\publish".Length)
-              $ftpPath = "ftp://$env:FTP_SERVER/wwwroot$relativePath".Replace("\", "/")
+              $ftpPath = "ftp://$env:FTP_SERVER/CodersGear$relativePath".Replace("\", "/")
               Write-Host "Uploading: $($file.Name)"
               try {
                 $webClient.UploadFile($ftpPath, $file.FullName)
