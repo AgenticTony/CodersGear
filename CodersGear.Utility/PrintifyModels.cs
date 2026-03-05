@@ -115,6 +115,22 @@ namespace CodersGear.Utility
 
         [JsonPropertyName("options")]
         public List<int> Options { get; set; } = new();
+
+        // Parsed from Title (e.g., "Small / Black" -> Size="Small", Color="Black")
+        public string? Size { get; set; }
+        public string? Color { get; set; }
+
+        public void ParseTitle()
+        {
+            if (string.IsNullOrEmpty(Title))
+                return;
+
+            var parts = Title.Split(new[] { " / ", " - " }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 1)
+                Size = parts[0].Trim();
+            if (parts.Length >= 2)
+                Color = parts[1].Trim();
+        }
     }
 
     public class PrintifyImage

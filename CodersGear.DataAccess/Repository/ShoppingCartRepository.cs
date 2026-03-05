@@ -40,20 +40,23 @@ namespace CodersGear.DataAccess.Repository
 
             foreach (var sessionCart in sessionCarts)
             {
-                // Check if user already has this product in their cart
+                // Check if user already has this product AND variant in their cart
                 var userCart = _db.ShoppingCarts
-                    .FirstOrDefault(sc => sc.ApplicationUserId == userId && sc.ProductId == sessionCart.ProductId);
+                    .FirstOrDefault(sc => sc.ApplicationUserId == userId &&
+                                         sc.ProductId == sessionCart.ProductId &&
+                                         sc.Size == sessionCart.Size &&
+                                         sc.Color == sessionCart.Color);
 
                 if (userCart != null)
                 {
-                    // Merge quantities
+                    // Merge quantities (same product AND variant)
                     userCart.Count += sessionCart.Count;
                     userCart.OrderTotal += sessionCart.OrderTotal;
                     _db.ShoppingCarts.Update(userCart);
                 }
                 else
                 {
-                    // Transfer session cart to user cart
+                    // Transfer session cart to user cart (different variant or new product)
                     sessionCart.ApplicationUserId = userId;
                     sessionCart.SessionId = null; // Clear session ID
                     _db.ShoppingCarts.Update(sessionCart);

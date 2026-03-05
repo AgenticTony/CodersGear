@@ -258,7 +258,11 @@ namespace CodersGear.Areas.Customer.Controllers
                     ProductId = cart.ProductId,
                     OrderHeaderId = ShoppingCartVM.OrderHeader.Id,
                     Price = cart.Price,
-                    Count = cart.Count
+                    Count = cart.Count,
+                    // Copy variant info for Printify order submission
+                    Size = cart.Size,
+                    Color = cart.Color,
+                    PrintifyVariantId = cart.PrintifyVariantId
                 };
                 _unitOfWork.OrderDetail.Add(orderDetail);
             }

@@ -21,5 +21,10 @@ namespace CodersGear.Models
         public Product Product { get; set; }
         public int Count { get; set; }
         public decimal Price { get; set; }
+
+        // Variant information for Printify products
+        public string? Size { get; set; }
+        public string? Color { get; set; }
+        public string? PrintifyVariantId { get; set; }
     }
 }

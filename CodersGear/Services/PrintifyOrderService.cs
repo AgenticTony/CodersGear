@@ -102,18 +102,60 @@ namespace CodersGear.Services
                 {
                     var product = _unitOfWork.Product.Get(p => p.ProductId == orderDetail.ProductId);
 
-                    if (product != null && !string.IsNullOrEmpty(product.PrintifyVariantData))
+                    if (product != null && !string.IsNullOrEmpty(product.PrintifyProductId))
                     {
-                        // Parse variant data to get the variant ID
-                        var variants = JsonSerializer.Deserialize<List<Utility.PrintifyVariant>>(product.PrintifyVariantData);
-                        var firstVariant = variants?.FirstOrDefault(v => v.IsDefault) ?? variants?.FirstOrDefault();
+                        // Use the variant ID stored in the order detail (from cart)
+                        // This is critical - we must use the variant the customer actually selected!
+                        int? variantId = null;
 
-                        if (firstVariant != null)
+                        // Try to parse the stored variant ID
+                        if (!string.IsNullOrEmpty(orderDetail.PrintifyVariantId) && int.TryParse(orderDetail.PrintifyVariantId, out int parsedId))
+                        {
+                            variantId = parsedId;
+                        }
+
+                        // Fallback: if no variant ID stored, try to find matching variant by size/color
+                        if (variantId == null && !string.IsNullOrEmpty(product.PrintifyVariantData))
+                        {
+                            var variants = JsonSerializer.Deserialize<List<Utility.PrintifyVariant>>(product.PrintifyVariantData);
+
+                            // Try to match by size and color (parse from Title which is like "Small / Black")
+                            if (!string.IsNullOrEmpty(orderDetail.Size) || !string.IsNullOrEmpty(orderDetail.Color))
+                            {
+                                var matchingVariant = variants?.FirstOrDefault(v =>
+                                {
+                                    if (!v.IsEnabled) return false;
+
+                                    // Parse size and color from title (format: "Size / Color" or similar)
+                                    var parts = v.Title.Split('/', StringSplitOptions.TrimEntries);
+                                    var variantSize = parts.Length > 0 ? parts[0] : "";
+                                    var variantColor = parts.Length > 1 ? parts[1] : "";
+
+                                    bool sizeMatches = string.IsNullOrEmpty(orderDetail.Size) ||
+                                                       variantSize.Equals(orderDetail.Size, StringComparison.OrdinalIgnoreCase);
+                                    bool colorMatches = string.IsNullOrEmpty(orderDetail.Color) ||
+                                                        variantColor.Equals(orderDetail.Color, StringComparison.OrdinalIgnoreCase);
+
+                                    return sizeMatches && colorMatches;
+                                });
+
+                                variantId = matchingVariant?.Id;
+                            }
+
+                            // Last resort: use default or first variant
+                            if (variantId == null)
+                            {
+                                var fallbackVariant = variants?.FirstOrDefault(v => v.IsDefault) ?? variants?.FirstOrDefault(v => v.IsEnabled);
+                                variantId = fallbackVariant?.Id;
+                            }
+                        }
+
+                        if (variantId.HasValue)
                         {
                             printifyOrderRequest.LineItems.Add(new Utility.PrintifyLineItem
                             {
                                 ProductId = product.PrintifyProductId ?? string.Empty,
-                                VariantId = firstVariant.Id,
+                                VariantId = variantId.Value,
                                 Quantity = orderDetail.Count,
                                 ExternalId = orderDetail.Id.ToString()
                             });

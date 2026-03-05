@@ -255,8 +255,17 @@
             });
 
             if (matchingVariant) {
-                formData.append('variantId', matchingVariant.id);
+                // Send variant ID for Printify order submission
+                formData.append('PrintifyVariantId', matchingVariant.id);
                 formData.append('variantPrice', matchingVariant.price);
+
+                // Send size and color text values for cart display
+                if (matchingVariant.size) {
+                    formData.append('Size', matchingVariant.size);
+                }
+                if (matchingVariant.color) {
+                    formData.append('Color', matchingVariant.color);
+                }
             }
         }
 

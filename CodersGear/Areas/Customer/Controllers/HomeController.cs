@@ -107,21 +107,24 @@ namespace CodersGear.Areas.Customer.Controllers
                 shoppingCart.ApplicationUserId = userId;
                 shoppingCart.SessionId = null;
 
-                // Check if shopping cart already exists for this user and product
+                // Check if shopping cart already exists for this user, product AND variant
                 ShoppingCart cartFromDb = _unitOfWork.ShoppingCart.Get(
-                    u => u.ApplicationUserId == userId && u.ProductId == shoppingCart.ProductId,
+                    u => u.ApplicationUserId == userId &&
+                         u.ProductId == shoppingCart.ProductId &&
+                         u.Size == shoppingCart.Size &&
+                         u.Color == shoppingCart.Color,
                     tracked: false);
 
                 if (cartFromDb != null)
                 {
-                    // Shopping cart already exists, update the count
+                    // Shopping cart already exists with same variant, update the count
                     shoppingCart.Count += cartFromDb.Count;
                     shoppingCart.Id = cartFromDb.Id;
                     _unitOfWork.ShoppingCart.Update(shoppingCart);
                 }
                 else
                 {
-                    // Shopping cart doesn't exist, add new entry
+                    // Shopping cart doesn't exist (different variant or new product), add new entry
                     _unitOfWork.ShoppingCart.Add(shoppingCart);
                 }
             }
@@ -131,21 +134,23 @@ namespace CodersGear.Areas.Customer.Controllers
                 shoppingCart.SessionId = sessionId;
                 shoppingCart.ApplicationUserId = null;
 
-                // Get all session carts for this product
-                var sessionCarts = _unitOfWork.ShoppingCart.GetAll(
-                    u => u.SessionId == sessionId && u.ProductId == shoppingCart.ProductId);
+                // Get session cart for this product AND variant
+                var existingCart = _unitOfWork.ShoppingCart.Get(
+                    u => u.SessionId == sessionId &&
+                         u.ProductId == shoppingCart.ProductId &&
+                         u.Size == shoppingCart.Size &&
+                         u.Color == shoppingCart.Color);
 
-                if (sessionCarts.Any())
+                if (existingCart != null)
                 {
-                    // Session cart already exists, update the count
-                    var existingCart = sessionCarts.First();
+                    // Session cart already exists with same variant, update the count
                     shoppingCart.Count += existingCart.Count;
                     shoppingCart.Id = existingCart.Id;
                     _unitOfWork.ShoppingCart.Update(shoppingCart);
                 }
                 else
                 {
-                    // Session cart doesn't exist, add new entry
+                    // Session cart doesn't exist (different variant or new product), add new entry
                     _unitOfWork.ShoppingCart.Add(shoppingCart);
                 }
             }

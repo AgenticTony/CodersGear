@@ -26,7 +26,10 @@ namespace CodersGear.Models
         public ApplicationUser? ApplicationUser { get; set; }
         public decimal OrderTotal { get; set; }
 
-
+        // Variant information for Printify products
+        public string? Size { get; set; }
+        public string? Color { get; set; }
+        public string? PrintifyVariantId { get; set; }
 
     }
 }
