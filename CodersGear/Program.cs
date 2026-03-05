@@ -68,20 +68,36 @@ builder.Services.AddAntiforgery(options =>
 
 var app = builder.Build();
 
-// Apply database migrations
+// Apply database migrations or create database
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     try
     {
-        // Apply all pending migrations
-        db.Database.Migrate();
-        Console.WriteLine("Database migration completed successfully.");
+        // First try to apply migrations
+        if (db.Database.GetPendingMigrations().Any())
+        {
+            db.Database.Migrate();
+            Console.WriteLine("Database migration completed successfully.");
+        }
+        else
+        {
+            Console.WriteLine("No pending migrations.");
+        }
     }
     catch (Exception ex)
     {
         Console.WriteLine($"Database migration failed: {ex.Message}");
-        // Log but don't crash - allows debugging
+        // Fallback: Ensure database is created (creates tables from current model)
+        try
+        {
+            db.Database.EnsureCreated();
+            Console.WriteLine("Database created/verified successfully using EnsureCreated.");
+        }
+        catch (Exception createEx)
+        {
+            Console.WriteLine($"Database creation also failed: {createEx.Message}");
+        }
     }
 }
 

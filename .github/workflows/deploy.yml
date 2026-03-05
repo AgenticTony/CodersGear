@@ -33,4 +33,3 @@ jobs:
           password: ${{ secrets.SMARTASP_PASSWORD }}
           local-dir: ./publish/
           server-dir: ./codersgear/
-          dangerous-clean-slate: true
