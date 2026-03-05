@@ -259,12 +259,14 @@
                 formData.append('PrintifyVariantId', matchingVariant.id);
                 formData.append('variantPrice', matchingVariant.price);
 
-                // Send size and color text values for cart display
-                if (matchingVariant.size) {
-                    formData.append('Size', matchingVariant.size);
+                // Parse size and color from variant title (e.g., "Small / Black")
+                const variantTitle = matchingVariant.title || '';
+                const parts = variantTitle.split(' / ');
+                if (parts.length >= 1) {
+                    formData.append('Size', parts[0].trim());
                 }
-                if (matchingVariant.color) {
-                    formData.append('Color', matchingVariant.color);
+                if (parts.length >= 2) {
+                    formData.append('Color', parts[1].trim());
                 }
             }
         }
