@@ -16,7 +16,7 @@ jobs:
         with:
           dotnet-version: 9.0.x
 
-      - name: Restore dependencies
+      - name: Install dependencies
         run: dotnet restore CodersGear/CodersGear.csproj
 
       - name: Build
@@ -25,48 +25,11 @@ jobs:
       - name: Publish
         run: dotnet publish CodersGear/CodersGear.csproj --configuration Release --output ./publish
 
-      - name: Deploy to SmarterASP via FTP (PowerShell)
-        shell: pwsh
-        env:
-          FTP_SERVER: ${{ secrets.SMARTASP_FTP_SERVER }}
-          FTP_USER: ${{ secrets.SMARTASP_USERNAME }}
-          FTP_PASS: ${{ secrets.SMARTASP_PASSWORD }}
-        run: |
-          $localPath = "${{ github.workspace }}\publish\*"
-
-          Write-Host "Connecting to FTP server: $env:FTP_SERVER"
-
-          # Create FTP script
-          $ftpScript = @"
-          open $env:FTP_SERVER
-          user $env:FTP_USER $env:FTP_PASS
-          binary
-          prompt
-          mput $localPath
-          bye
-          "@
-
-          $ftpScript | Out-File -FilePath "ftp_script.txt" -Encoding ASCII
-
-          # Try FTP connection
-          Write-Host "Uploading files..."
-
-          # Use WebClient for FTP upload
-          $files = Get-ChildItem -Path "${{ github.workspace }}\publish" -Recurse
-          $webClient = New-Object System.Net.WebClient
-          $webClient.Credentials = New-Object System.Net.NetworkCredential($env:FTP_USER, $env:FTP_PASS)
-
-          foreach ($file in $files) {
-            if (-not $file.PSIsContainer) {
-              $relativePath = $file.FullName.Substring("${{ github.workspace }}\publish".Length)
-              $ftpPath = "ftp://$env:FTP_SERVER/CodersGear$relativePath".Replace("\", "/")
-              Write-Host "Uploading: $($file.Name)"
-              try {
-                $webClient.UploadFile($ftpPath, $file.FullName)
-              } catch {
-                Write-Host "Error uploading $($file.Name): $_"
-              }
-            }
-          }
-
-          Write-Host "Deployment complete!"
+      - name: Sync files to SmarterASP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.SMARTASP_FTP_SERVER }}
+          username: ${{ secrets.SMARTASP_USERNAME }}
+          password: ${{ secrets.SMARTASP_PASSWORD }}
+          local-dir: ./publish/
+          server-dir: ./
