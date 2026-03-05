@@ -32,4 +32,4 @@ jobs:
           username: ${{ secrets.SMARTASP_USERNAME }}
           password: ${{ secrets.SMARTASP_PASSWORD }}
           local-dir: ./publish/
-          server-dir: ./
+          server-dir: ./codersgear/
