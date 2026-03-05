@@ -25,27 +25,48 @@ jobs:
       - name: Publish
         run: dotnet publish CodersGear/CodersGear.csproj --configuration Release --output ./publish
 
-      - name: Install Web Deploy
+      - name: Deploy to SmarterASP via FTP (PowerShell)
         shell: pwsh
+        env:
+          FTP_SERVER: ${{ secrets.SMARTASP_FTP_SERVER }}
+          FTP_USER: ${{ secrets.SMARTASP_USERNAME }}
+          FTP_PASS: ${{ secrets.SMARTASP_PASSWORD }}
         run: |
-          choco install webdeploy -y
+          $localPath = "${{ github.workspace }}\publish\*"
 
-      - name: Deploy to SmarterASP via Web Deploy
-        shell: pwsh
-        run: |
-          $sourcePath = "${{ github.workspace }}\publish"
-          $siteName = "anthonyforan-001-site1"
-          $computerName = "https://win6187.site4now.net:8172/MsDeploy.axd?site=$siteName"
-          $username = "${{ secrets.SMARTASP_USERNAME }}"
-          $password = "${{ secrets.SMARTASP_PASSWORD }}"
+          Write-Host "Connecting to FTP server: $env:FTP_SERVER"
 
-          Write-Host "Deploying to SmarterASP..."
+          # Create FTP script
+          $ftpScript = @"
+          open $env:FTP_SERVER
+          user $env:FTP_USER $env:FTP_PASS
+          binary
+          prompt
+          mput $localPath
+          bye
+          "@
 
-          & "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe" `
-            -verb:sync `
-            -source:contentPath="$sourcePath" `
-            -dest:contentPath="$siteName",ComputerName="$computerName",UserName="$username",Password="$password",AuthType="Basic" `
-            -allowUntrusted `
-            -verbose
+          $ftpScript | Out-File -FilePath "ftp_script.txt" -Encoding ASCII
+
+          # Try FTP connection
+          Write-Host "Uploading files..."
+
+          # Use WebClient for FTP upload
+          $files = Get-ChildItem -Path "${{ github.workspace }}\publish" -Recurse
+          $webClient = New-Object System.Net.WebClient
+          $webClient.Credentials = New-Object System.Net.NetworkCredential($env:FTP_USER, $env:FTP_PASS)
+
+          foreach ($file in $files) {
+            if (-not $file.PSIsContainer) {
+              $relativePath = $file.FullName.Substring("${{ github.workspace }}\publish".Length)
+              $ftpPath = "ftp://$env:FTP_SERVER/wwwroot$relativePath".Replace("\", "/")
+              Write-Host "Uploading: $($file.Name)"
+              try {
+                $webClient.UploadFile($ftpPath, $file.FullName)
+              } catch {
+                Write-Host "Error uploading $($file.Name): $_"
+              }
+            }
+          }
 
           Write-Host "Deployment complete!"
