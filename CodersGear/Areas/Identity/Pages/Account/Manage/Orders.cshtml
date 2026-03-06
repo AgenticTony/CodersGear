@@ -72,6 +72,19 @@
                                                                 @item.Product.ProductName
                                                             </h6>
                                                             <small class="text-muted d-block mb-2">@item.Product.Category?.Name</small>
+                                                            @if (!string.IsNullOrEmpty(item.Size) || !string.IsNullOrEmpty(item.Color))
+                                                            {
+                                                                <div class="mb-2">
+                                                                    @if (!string.IsNullOrEmpty(item.Size))
+                                                                    {
+                                                                        <span class="badge bg-secondary me-1">Size: @item.Size</span>
+                                                                    }
+                                                                    @if (!string.IsNullOrEmpty(item.Color))
+                                                                    {
+                                                                        <span class="badge bg-secondary">Color: @item.Color</span>
+                                                                    }
+                                                                </div>
+                                                            }
                                                             <div class="d-flex justify-content-between align-items-center">
                                                                 <span class="text-muted">Qty: @item.Count × @item.Price.ToString("C2", new System.Globalization.CultureInfo("en-US"))</span>
                                                                 <strong>@((item.Price * item.Count).ToString("C2", new System.Globalization.CultureInfo("en-US")))</strong>

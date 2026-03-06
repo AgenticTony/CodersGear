@@ -94,6 +94,19 @@
                                                 <div>
                                                     <span class="d-block">@item.Product.ProductName</span>
                                                     <small class="text-muted">Qty: @item.Count</small>
+                                                    @if (!string.IsNullOrEmpty(item.Size) || !string.IsNullOrEmpty(item.Color))
+                                                    {
+                                                        <div class="mt-1">
+                                                            @if (!string.IsNullOrEmpty(item.Size))
+                                                            {
+                                                                <span class="badge bg-secondary me-1">Size: @item.Size</span>
+                                                            }
+                                                            @if (!string.IsNullOrEmpty(item.Color))
+                                                            {
+                                                                <span class="badge bg-secondary">Color: @item.Color</span>
+                                                            }
+                                                        </div>
+                                                    }
                                                 </div>
                                             }
                                         </div>
