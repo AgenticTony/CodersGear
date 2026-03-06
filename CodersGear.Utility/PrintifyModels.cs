@@ -418,5 +418,14 @@ namespace CodersGear.Utility
         [JsonPropertyName("id")]
         public string Id { get; set; } = string.Empty;
     }
+
+    public class PrintifyShopDisconnectedData
+    {
+        [JsonPropertyName("shop_id")]
+        public int ShopId { get; set; }
+
+        [JsonPropertyName("reason")]
+        public string? Reason { get; set; }
+    }
     #endregion
 }
