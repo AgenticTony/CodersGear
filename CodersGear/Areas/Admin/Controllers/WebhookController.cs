@@ -157,7 +157,7 @@ namespace CodersGear.Areas.Admin.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Delete(string webhookId)
+        public async Task<IActionResult> Delete(string webhookId, string webhookUrl)
         {
             var shopId = _configuration["Printify:ShopId"];
 
@@ -175,7 +175,15 @@ namespace CodersGear.Areas.Admin.Controllers
 
             try
             {
-                var success = await _printifyService.DeleteWebhookAsync(shopId, webhookId);
+                // Extract host from webhook URL (required by Printify API for deletion)
+                string host = "";
+                if (!string.IsNullOrEmpty(webhookUrl))
+                {
+                    var uri = new Uri(webhookUrl);
+                    host = uri.Host;
+                }
+
+                var success = await _printifyService.DeleteWebhookAsync(shopId, webhookId, host);
 
                 if (success)
                 {

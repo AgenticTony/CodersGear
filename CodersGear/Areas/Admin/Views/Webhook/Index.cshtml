@@ -152,6 +152,7 @@
                                                 <form asp-action="Delete" method="post" class="d-inline">
                                                     @Html.AntiForgeryToken()
                                                     <input type="hidden" name="webhookId" value="@webhook.Id" />
+                                                    <input type="hidden" name="webhookUrl" value="@webhook.Url" />
                                                     <button type="submit" class="btn btn-sm btn-danger"
                                                             onclick="return confirm('Are you sure you want to delete this webhook?')">
                                                         <i class="bi bi-trash"></i> Delete
