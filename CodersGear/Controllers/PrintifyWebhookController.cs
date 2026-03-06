@@ -91,6 +91,18 @@ namespace CodersGear.Controllers
                         await HandleProductDeleted(webhookEvent);
                         break;
 
+                    case "order:created":
+                        await HandleOrderCreated(webhookEvent);
+                        break;
+
+                    case "order:sent-to-production":
+                        await HandleOrderSentToProduction(webhookEvent);
+                        break;
+
+                    case "shop:disconnected":
+                        await HandleShopDisconnected(webhookEvent);
+                        break;
+
                     default:
                         _logger.LogInformation($"Unhandled Printify webhook type: {webhookEvent.Type}");
                         break;
@@ -294,6 +306,82 @@ namespace CodersGear.Controllers
                 _unitOfWork.Product.Update(product);
                 _unitOfWork.Save();
                 _logger.LogInformation($"Product {product.ProductId} (Printify ID: {webhookEvent.Resource.Id}) has been marked as deleted and hidden.");
+            }
+        }
+
+        private async Task HandleOrderCreated(PrintifyWebhookEvent webhookEvent)
+        {
+            _logger.LogInformation($"Order created: {webhookEvent.Resource?.Id}");
+
+            if (webhookEvent.Resource?.Data.ValueKind == JsonValueKind.Object)
+            {
+                var orderData = JsonSerializer.Deserialize<PrintifyOrderUpdatedData>(webhookEvent.Resource.Data.GetRawText());
+
+                if (orderData != null)
+                {
+                    _logger.LogInformation($"Order {webhookEvent.Resource.Id} created with status: {orderData.Status}");
+
+                    // Check if we already have this order locally
+                    var existingOrder = _unitOfWork.OrderHeader.Get(o => o.PrintifyOrderId == webhookEvent.Resource.Id);
+
+                    if (existingOrder == null)
+                    {
+                        // Order was created directly in Printify - log for manual review
+                        _logger.LogInformation($"Order {webhookEvent.Resource.Id} was created in Printify but not found locally. " +
+                            $"This may be an external order that needs manual sync.");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"Order {webhookEvent.Resource.Id} already exists locally with ID: {existingOrder.Id}");
+                    }
+                }
+            }
+        }
+
+        private async Task HandleOrderSentToProduction(PrintifyWebhookEvent webhookEvent)
+        {
+            _logger.LogInformation($"Order sent to production: {webhookEvent.Resource?.Id}");
+
+            if (webhookEvent.Resource?.Data.ValueKind == JsonValueKind.Object)
+            {
+                var orderData = JsonSerializer.Deserialize<PrintifyOrderUpdatedData>(webhookEvent.Resource.Data.GetRawText());
+
+                if (orderData != null)
+                {
+                    // Find the local order by Printify Order ID
+                    var orderHeader = _unitOfWork.OrderHeader.Get(o => o.PrintifyOrderId == webhookEvent.Resource.Id);
+
+                    if (orderHeader != null)
+                    {
+                        orderHeader.OrderStatus = SD.Status_InProcess;
+                        _unitOfWork.OrderHeader.Update(orderHeader);
+                        _unitOfWork.Save();
+
+                        _logger.LogInformation($"Local order {orderHeader.Id} marked as in production.");
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"No local order found for Printify Order ID: {webhookEvent.Resource.Id}");
+                    }
+                }
+            }
+        }
+
+        private async Task HandleShopDisconnected(PrintifyWebhookEvent webhookEvent)
+        {
+            _logger.LogWarning($"Shop disconnected: {webhookEvent.Resource?.Id}");
+
+            if (webhookEvent.Resource?.Data.ValueKind == JsonValueKind.Object)
+            {
+                var shopData = JsonSerializer.Deserialize<PrintifyShopDisconnectedData>(webhookEvent.Resource.Data.GetRawText());
+
+                if (shopData != null)
+                {
+                    _logger.LogWarning($"Printify shop {webhookEvent.Resource.Id} has been disconnected. " +
+                        $"Reason: {shopData.Reason ?? "Unknown"}. Manual reconnection may be required.");
+                    // Note: This is a critical event that may require manual intervention
+                    // You could send an email notification or alert administrators here
+                }
             }
         }
     }
