@@ -14,7 +14,7 @@ namespace CodersGear.Utility
         Task<PrintifyOrder?> GetOrderAsync(string shopId, string orderId);
         Task<bool> CreateWebhookAsync(string shopId, string topic, string webhookUrl, string? secret = null);
         Task<List<PrintifyWebhook>> GetWebhooksAsync(string shopId);
-        Task<bool> DeleteWebhookAsync(string shopId, string webhookId);
+        Task<bool> DeleteWebhookAsync(string shopId, string webhookId, string host);
         Task<bool> NotifyPublishingSucceededAsync(string shopId, string productId, string externalId, string handle);
         Task<bool> NotifyPublishingFailedAsync(string shopId, string productId, string reason);
     }
@@ -194,13 +194,15 @@ namespace CodersGear.Utility
             return JsonSerializer.Deserialize<List<PrintifyWebhook>>(content, _jsonOptions) ?? new List<PrintifyWebhook>();
         }
 
-        public async Task<bool> DeleteWebhookAsync(string shopId, string webhookId)
+        public async Task<bool> DeleteWebhookAsync(string shopId, string webhookId, string host)
         {
             SetAuthHeader();
-            var response = await _httpClient.DeleteAsync($"{_settings.ApiUrl}/shops/{shopId}/webhooks/{webhookId}.json");
+            var response = await _httpClient.DeleteAsync($"{_settings.ApiUrl}/shops/{shopId}/webhooks/{webhookId}.json?host={Uri.EscapeDataString(host)}");
 
             if (!response.IsSuccessStatusCode && response.StatusCode != System.Net.HttpStatusCode.NotFound)
             {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError($"Failed to delete webhook: {response.StatusCode}. Error: {errorContent}");
                 throw new HttpRequestException($"Failed to delete webhook: {response.StatusCode}");
             }
 
