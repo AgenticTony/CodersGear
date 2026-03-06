@@ -231,10 +231,10 @@ namespace CodersGear.Controllers.Admin
 
         /// <summary>
         /// Delete a webhook from a Printify shop
-        /// DELETE: /admin/webhookmanagement/delete?shopId={shopId}&webhookId={webhookId}
+        /// DELETE: /admin/webhookmanagement/delete?shopId={shopId}&webhookId={webhookId}&webhookUrl={webhookUrl}
         /// </summary>
         [HttpDelete("delete")]
-        public async Task<IActionResult> DeleteWebhook([FromQuery] string shopId, [FromQuery] string webhookId)
+        public async Task<IActionResult> DeleteWebhook([FromQuery] string shopId, [FromQuery] string webhookId, [FromQuery] string webhookUrl)
         {
             try
             {
@@ -248,7 +248,15 @@ namespace CodersGear.Controllers.Admin
                     return BadRequest(new { success = false, error = "webhookId is required" });
                 }
 
-                var success = await _printifyService.DeleteWebhookAsync(shopId, webhookId);
+                // Extract host from webhook URL (required by Printify API for deletion)
+                string host = "";
+                if (!string.IsNullOrEmpty(webhookUrl))
+                {
+                    var uri = new Uri(webhookUrl);
+                    host = uri.Host;
+                }
+
+                var success = await _printifyService.DeleteWebhookAsync(shopId, webhookId, host);
 
                 if (success)
                 {
