@@ -17,13 +17,13 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Install dependencies
-        run: dotnet restore CodersGear/CodersGear.csproj
+        run: dotnet restore CodersGear/CodersGear/CodersGear.csproj
 
       - name: Build
-        run: dotnet build CodersGear/CodersGear.csproj --configuration Release --no-restore
+        run: dotnet build CodersGear/CodersGear/CodersGear.csproj --configuration Release --no-restore
 
       - name: Publish
-        run: dotnet publish CodersGear/CodersGear.csproj --configuration Release --output ./publish
+        run: dotnet publish CodersGear/CodersGear/CodersGear.csproj --configuration Release --output ./publish
 
       - name: Sync files to SmarterASP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
