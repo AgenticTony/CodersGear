@@ -23,11 +23,11 @@
 else
 {
     <!-- Products Grid -->
-    <div class="row d-flex flex-wrap pb-3">
+    <div class="row pb-3">
         @foreach (var product in Model)
         {
-            <div class="col-lg-3 col-sm-6 d-flex align-items-stretch">
-                <div class="card mb-3 w-100 border-0 shadow-sm d-flex flex-column">
+            <div class="col-lg-3 col-sm-6">
+                <div class="card mb-3 h-100 border-0 shadow-sm d-flex flex-column">
                     <a asp-action="Details" asp-route-productId="@product.ProductId" class="text-decoration-none">
                         <img src="@product.ImageUrl" class="card-img-top rounded-top" style="object-fit: cover; width: 100%; height: 250px;"/>
                     </a>
@@ -52,13 +52,13 @@ else
                             <div class="d-grid gap-2">
                                 <a asp-action="Details" asp-route-productId="@product.ProductId" class="btn btn-primary py-2 fs-6">See Details</a>
                                 <button type="button" class="btn btn-success py-2 quick-buy-btn"
-                                   data-product-id="@product.ProductId"
-                                   data-product-name="@product.ProductName"
-                                   data-price="@product.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
-                                   data-image-url="@product.ImageUrl"
-                                   data-has-variants="@(product.IsPrintifyProduct && !string.IsNullOrEmpty(product.PrintifyOptionsData) ? "true" : "false")"
-                                   data-variant-data="@product.PrintifyVariantData"
-                                   data-options-data="@product.PrintifyOptionsData">
+                                    data-product-id="@product.ProductId"
+                                    data-product-name="@product.ProductName"
+                                    data-price="@product.Price.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
+                                    data-image-url="@product.ImageUrl"
+                                    data-has-variants="@(product.IsPrintifyProduct && !string.IsNullOrEmpty(product.PrintifyOptionsData) ? "true" : "false")"
+                                    data-variant-data="@product.PrintifyVariantData"
+                                    data-options-data="@product.PrintifyOptionsData">
                                     Buy Now
                                 </button>
                             </div>
