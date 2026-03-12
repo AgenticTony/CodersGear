@@ -53,9 +53,9 @@ namespace CodersGear.Areas.Customer.Controllers
 
         public IActionResult Index()
         {
-            // Get all visible products with categories
+            // Get all visible products with categories (excluding Hoodies - CategoryId = 2)
             IEnumerable<Product> products = _unitOfWork.Product.GetAll(includeProperties: "Category")
-                .Where(p => p.Visible);
+                .Where(p => p.Visible && p.CategoryId != 2);
 
             // Group by category
             List<CategoryProductViewModel> categoryGroups = products
