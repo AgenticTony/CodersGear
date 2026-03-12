@@ -106,11 +106,11 @@ else
             <h2 class="mb-3 text-secondary">
                 <i class="bi"></i> @categoryGroup.CategoryName
             </h2>
-            <div class="row pb-3">
+            <div class="row d-flex flex-wrap pb-3">
                 @foreach (var product in categoryGroup.Products)
                 {
-                    <div class="col-lg-3 col-sm-6">
-                        <div class="card mb-3 h-100 border-0 shadow-sm d-flex flex-column">
+                    <div class="col-lg-3 col-sm-6 d-flex align-items-stretch">
+                        <div class="card w-100 border-0 shadow-sm">
                             <a asp-action="Details" asp-route-productId="@product.ProductId" class="text-decoration-none">
                                 <img src="@product.ImageUrl" class="card-img-top rounded-top" style="object-fit: cover; width: 100%; height: 250px;"/>
                             </a>
