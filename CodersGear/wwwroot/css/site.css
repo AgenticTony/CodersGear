@@ -54,3 +54,39 @@ body {
 body {
   padding-top: 80px; /* Add padding to account for fixed navbar + extra space for page titles */
 }
+
+/* Product Grid - CSS Grid for proper handling of varying card heights */
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  padding-bottom: 1rem;
+}
+
+@media (max-width: 991.98px) {
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 575.98px) {
+  .products-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.products-grid .card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.products-grid .card-body {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.products-grid .card-body .mt-auto {
+  margin-top: auto;
+}
