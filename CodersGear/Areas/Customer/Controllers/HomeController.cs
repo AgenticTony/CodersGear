@@ -229,7 +229,7 @@ namespace CodersGear.Areas.Customer.Controllers
             return RedirectToAction("Index", "Cart");
         }
 
-        public IActionResult Hoddies()
+        public IActionResult Hoodies()
         {
             IEnumerable<Product> products = _unitOfWork.Product.GetAll(includeProperties: "Category")
                 .Where(p => p.CategoryId == 2 && p.Visible);
